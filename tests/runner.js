@@ -4,6 +4,7 @@
 const http = require("http");
 const { spawn } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 
 const PORT = 3000;
 const EXTENSION_ID = "fjpkoelncdbekapkebmodcfbnjngboca";
@@ -43,12 +44,14 @@ async function run() {
 
   console.log(`Test server listening on port ${PORT}...`);
 
+  const userDataDir = path.resolve(`/tmp/tabbies-test-profile-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`);
+
   // 2. Launch Chromium headlessly with the extension loaded
   console.log("Launching Chromium headlessly...");
   const args = [
     `--load-extension=${path.resolve(__dirname, "..")}`,
     `--disable-extensions-except=${path.resolve(__dirname, "..")}`,
-    `--user-data-dir=/tmp/tabbies-test-profile`,
+    `--user-data-dir=${userDataDir}`,
     `--no-sandbox`,
     `--headless=new`,
     TEST_URL
@@ -91,6 +94,13 @@ async function run() {
   } finally {
     if (server) server.close();
     if (chromiumProcess) chromiumProcess.kill();
+    try {
+      if (fs.existsSync(userDataDir)) {
+        fs.rmSync(userDataDir, { recursive: true, force: true });
+      }
+    } catch (err) {
+      console.error("Failed to clean up user data directory:", err.message);
+    }
   }
 }
 
