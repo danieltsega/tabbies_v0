@@ -252,20 +252,17 @@ async function handleMessage(message, sender) {
       if (tabIndex === -1) throw new Error("Saved tab not found");
 
       const tab = savedTabs[tabIndex];
-      
-      // If it is in hot storage, close it. If active, keep it open but untracked.
+      savedTabs.splice(tabIndex, 1);
+      await setSavedTabs(savedTabs);
+
       if (tab.status === "hot") {
         try {
           await chrome.tabs.remove(tab.activeTabId);
         } catch (e) {
-          // Tab might have already been closed
+          // Tab may have already been closed
         }
       }
 
-      // Remove from list
-      savedTabs.splice(tabIndex, 1);
-      await setSavedTabs(savedTabs);
-      
       return { success: true };
     }
 
