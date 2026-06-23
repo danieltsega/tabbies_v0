@@ -167,7 +167,7 @@ function bindEvents() {
   $("add-category-btn").addEventListener("click", () => openCategoryModal(null));
 
   $("modal-cancel").addEventListener("click", closeCategoryModal);
-  $("modal-overlay")?.addEventListener("click", closeCategoryModal);
+  document.querySelector(".modal-overlay")?.addEventListener("click", closeCategoryModal);
 
   $("modal-save").addEventListener("click", async () => {
     const name = $("category-name").value.trim();
