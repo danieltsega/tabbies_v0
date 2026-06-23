@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabbies - Background Storage Test Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(17, 24, 39, 0.7);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --failure: #ef4444;
+      --running: #f59e0b;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 800px;
+      width: 100%;
+    }
+    h1 {
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 30px;
+      font-weight: 300;
+    }
+    .summary-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .summary-stat {
+      display: flex;
+      gap: 16px;
+    }
+    .stat-box {
+      text-align: center;
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+    }
+    .stat-num {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    button {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #4338ca;
+    }
+    .test-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .test-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .test-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .test-name {
+      font-weight: 600;
+    }
+    .test-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .test-status {
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .status-pending {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+    }
+    .status-running {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--running);
+    }
+    .status-passed {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+    .status-failed {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--failure);
+    }
+    .log-box {
+      margin-top: 30px;
+      background: #05070c;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tabbies Test Suite</h1>
+    <div class="subtitle">Verifying background storage window operations and tab lifecycle events</div>
+    
+    <div class="summary-card">
+      <div>
+        <button id="run-btn">Run Test Suite</button>
+      </div>
+      <div class="summary-stat">
+        <div class="stat-box">
+          <div class="stat-num" id="passed-count">0</div>
+          <div class="stat-label">Passed</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="failed-count">0</div>
+          <div class="stat-label">Failed</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-list" id="test-list">
+      <!-- Tests will be rendered here -->
+    </div>
+
+    <div class="log-box" id="log-box">Click "Run Test Suite" to begin...</div>
+  </div>
+  <script src="test.js"></script>
+</body>
+</html>
