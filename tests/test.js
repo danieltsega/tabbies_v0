@@ -1,5 +1,8 @@
 // Tabbies - Test Suite Implementation
 
+const TEST_URL_A = chrome.runtime.getURL("popup.html");
+const TEST_URL_B = chrome.runtime.getURL("anchor.html");
+
 const tests = [
   {
     id: "bg-connection",
@@ -32,7 +35,7 @@ const tests = [
       log("Triggering save tab to initialize storage window...");
       
       // We will create a temp tab to save/shelve
-      const tempTab = await chrome.tabs.create({ url: "https://example.org/", active: false });
+      const tempTab = await chrome.tabs.create({ url: TEST_URL_B, active: false });
       log(`Temp tab created: ID ${tempTab.id}`);
       
       const res = await chrome.runtime.sendMessage({
@@ -70,7 +73,7 @@ const tests = [
     desc: "Verifies shelving a tab moves it without reloading, and unshelving restores it",
     fn: async (log) => {
       // Create a test tab
-      const testTab = await chrome.tabs.create({ url: "https://example.com/", active: false });
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
       log(`Created test tab: ID ${testTab.id}`);
       
       // Shelve the tab
@@ -128,7 +131,7 @@ const tests = [
     desc: "Verifies that closing a saved tab in Chrome transitions it to cold storage",
     fn: async (log) => {
       // Create and save an active tab
-      const testTab = await chrome.tabs.create({ url: "https://example.org/", active: false });
+      const testTab = await chrome.tabs.create({ url: TEST_URL_B, active: false });
       log(`Created test tab: ID ${testTab.id}`);
       
       const saveRes = await chrome.runtime.sendMessage({
@@ -170,7 +173,7 @@ const tests = [
       const coldTab = {
         id: "test_cold_" + now,
         categoryId: "test-cat",
-        url: "https://example.com/",
+        url: TEST_URL_A,
         title: "Example Title",
         favIconUrl: "",
         status: "cold",
@@ -217,7 +220,7 @@ const tests = [
     desc: "Verifies closing the background window transitions all hot tabs to cold",
     fn: async (log) => {
       // Ensure we have a storage window
-      const storageWindowId = await chrome.runtime.sendMessage({ action: "shelveActiveTab", tabId: (await chrome.tabs.create({url: "https://example.com", active: false})).id, categoryId: "test" })
+      const storageWindowId = await chrome.runtime.sendMessage({ action: "shelveActiveTab", tabId: (await chrome.tabs.create({url: TEST_URL_A, active: false})).id, categoryId: "test" })
         .then(async (res) => {
           const data = await chrome.storage.local.get("storageWindowId");
           return data.storageWindowId;
@@ -226,7 +229,7 @@ const tests = [
       log(`Active storage window ID: ${storageWindowId}`);
       
       // Create a second tab and shelve it
-      const tabToShelve = await chrome.tabs.create({ url: "https://example.org/", active: false });
+      const tabToShelve = await chrome.tabs.create({ url: TEST_URL_B, active: false });
       const shelveRes = await chrome.runtime.sendMessage({
         action: "shelveActiveTab",
         tabId: tabToShelve.id,
