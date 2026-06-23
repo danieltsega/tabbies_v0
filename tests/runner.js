@@ -9,13 +9,24 @@ const fs = require("fs");
 const PORT = 3000;
 const CHROMIUM_PATH = "/usr/bin/chromium";
 
+async function ensureDisplay() {
+  if (process.env.DISPLAY) return null;
+  const xvfb = spawn("Xvfb", [":99", "-screen", "0", "1920x1080x24"], { stdio: "ignore" });
+  await new Promise(r => setTimeout(r, 500));
+  process.env.DISPLAY = ":99";
+  return xvfb;
+}
+
 async function run() {
   let server;
   let chromiumProcess;
-  
+  let xvfbProcess;
+
   const userDataDir = path.resolve(`/tmp/tabbies-test-profile-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`);
 
   try {
+    xvfbProcess = await ensureDisplay();
+
     // 1. Detect extension ID by starting a temporary Chromium process
     console.log("Detecting extension ID...");
     const tempProc = spawn(CHROMIUM_PATH, [
@@ -124,6 +135,7 @@ async function run() {
   } finally {
     if (server) server.close();
     if (chromiumProcess) chromiumProcess.kill();
+    if (xvfbProcess) xvfbProcess.kill();
     try {
       if (fs.existsSync(userDataDir)) {
         fs.rmSync(userDataDir, { recursive: true, force: true });
