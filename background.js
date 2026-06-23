@@ -2,6 +2,7 @@
 // Manages the background window, tab state transitions, and chrome extension events.
 
 let creatingWindowPromise = null;
+let recreatingAnchor = false;
 
 // Helper to get or create the background storage window
 async function getOrCreateStorageWindow() {
@@ -355,13 +356,11 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
     await setSavedTabs(updatedTabs);
   }
 
-  // Self-healing: if the closed tab was inside the storage window, verify if we need to recreate the anchor tab
-  if (storageWindowId && removeInfo.windowId === storageWindowId) {
+  if (storageWindowId && removeInfo.windowId === storageWindowId && !recreatingAnchor) {
+    recreatingAnchor = true;
     try {
       const tabs = await chrome.tabs.query({ windowId: storageWindowId });
       const hasAnchor = tabs.some(t => t.url && t.url.includes("anchor.html"));
-      
-      // If no anchor tab remains, recreate it at the beginning of the window
       if (!hasAnchor && tabs.length > 0) {
         await chrome.tabs.create({
           windowId: storageWindowId,
@@ -371,7 +370,9 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
         });
       }
     } catch (e) {
-      // Storage window might be gone or closing
+      // Storage window may be gone or closing
+    } finally {
+      recreatingAnchor = false;
     }
   }
 });
