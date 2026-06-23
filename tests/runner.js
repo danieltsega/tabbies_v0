@@ -53,7 +53,6 @@ async function run() {
     `--disable-extensions-except=${path.resolve(__dirname, "..")}`,
     `--user-data-dir=${userDataDir}`,
     `--no-sandbox`,
-    `--headless=new`,
     TEST_URL
   ];
 
