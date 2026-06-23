@@ -2,14 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tabbies Background Storage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="anchor.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Tabbies Storage Window</h1>
-    <p>This window holds your shelved tabs to preserve their active states, scroll positions, and navigation history.</p>
-    <p class="warning">Do not close this window directly, or your shelved tabs will be closed and transition to cold storage.</p>
+  <div class="glow-bg"></div>
+  <div class="card">
+    <div class="logo-container">
+      <div class="logo-icon">🗂️</div>
+      <span class="logo-text">tabbies</span>
+    </div>
+    <h1>Active Background Storage</h1>
+    <p>This window manages your shelved tabs to keep them alive in memory. This preserves their scroll positions, form data, and back/forward navigation histories without cluttering your workspace.</p>
+    
+    <div class="badge-container">
+      <span class="badge badge-hot">🔥 Hot Storage Active</span>
+      <span class="badge badge-system">⚡ Zero-Reload Enabled</span>
+    </div>
+    
+    <div class="warning-box">
+      <span class="warning-icon">⚠️</span>
+      <p><strong>Please do not close this window directly.</strong> Doing so will close all shelved tabs and transition them to cold storage.</p>
+    </div>
+    
+    <div class="footer">
+      Running in background mode. You can minimize this window.
+    </div>
   </div>
 </body>
 </html>
