@@ -68,6 +68,17 @@ async function setSavedTabs(savedTabs) {
   await chrome.storage.local.set({ savedTabs });
 }
 
+// Get a target normal window, excluding the storage window
+async function getTargetWindow() {
+  const storageData = await chrome.storage.local.get("storageWindowId");
+  const storageWindowId = storageData.storageWindowId;
+  const lastFocused = await chrome.windows.getLastFocused();
+  if (lastFocused.id !== storageWindowId) return lastFocused.id;
+  const windows = await chrome.windows.getAll();
+  const target = windows.find(w => w.id !== storageWindowId);
+  return target ? target.id : lastFocused.id;
+}
+
 // Handle message commands from the popup UI or tests
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
@@ -178,8 +189,7 @@ async function handleMessage(message, sender) {
       const tab = savedTabs[tabIndex];
       if (tab.status !== "hot") throw new Error("Tab is not shelved");
 
-      const lastFocused = await chrome.windows.getLastFocused();
-      const targetWindowId = lastFocused.id;
+      const targetWindowId = await getTargetWindow();
 
       // Move the tab back to the active window
       await chrome.tabs.move(tab.activeTabId, { windowId: targetWindowId, index: -1 });
@@ -203,8 +213,7 @@ async function handleMessage(message, sender) {
       const tab = savedTabs[tabIndex];
       if (tab.status !== "cold") throw new Error("Tab is already open");
 
-      const lastFocused = await chrome.windows.getLastFocused();
-      const targetWindowId = lastFocused.id;
+      const targetWindowId = await getTargetWindow();
 
       // Create new tab with stored URL
       const newChromeTab = await chrome.tabs.create({
