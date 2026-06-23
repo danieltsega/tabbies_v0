@@ -8,9 +8,44 @@
 </head>
 <body>
   <div id="app">
-    <h1>Tabbies</h1>
-    <p>Loading...</p>
+    <header>
+      <div class="header-top">
+        <h1>Tabbies</h1>
+        <button id="add-category-btn" class="icon-btn" title="Add Category">+</button>
+      </div>
+      <div class="action-bar">
+        <button id="save-active-btn" class="btn-primary">Save Current Tab</button>
+        <button id="shelve-active-btn" class="btn-secondary">Shelve Current Tab</button>
+      </div>
+    </header>
+    <main id="tab-list"></main>
   </div>
+
+  <div id="category-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <h2 id="modal-title">Add Category</h2>
+      <div class="modal-body">
+        <label>
+          Name
+          <input type="text" id="category-name" placeholder="e.g. Work, Personal" />
+        </label>
+        <label>
+          Emoji
+          <input type="text" id="category-emoji" placeholder="📁" maxlength="2" />
+        </label>
+        <label>
+          Color
+        </label>
+        <div class="color-picker" id="color-picker"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn-ghost">Cancel</button>
+        <button id="modal-save" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
