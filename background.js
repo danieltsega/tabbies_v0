@@ -180,8 +180,7 @@ async function handleMessage(message, sender) {
       const tab = savedTabs[tabIndex];
       if (tab.status !== "hot") throw new Error("Tab is not shelved");
 
-      // Get last focused normal window to restore the tab to
-      const lastFocused = await chrome.windows.getLastFocused({ windowTypes: ["normal"] });
+      const lastFocused = await chrome.windows.getLastFocused();
       const targetWindowId = lastFocused.id;
 
       // Move the tab back to the active window
@@ -206,7 +205,7 @@ async function handleMessage(message, sender) {
       const tab = savedTabs[tabIndex];
       if (tab.status !== "cold") throw new Error("Tab is already open");
 
-      const lastFocused = await chrome.windows.getLastFocused({ windowTypes: ["normal"] });
+      const lastFocused = await chrome.windows.getLastFocused();
       const targetWindowId = lastFocused.id;
 
       // Create new tab with stored URL
