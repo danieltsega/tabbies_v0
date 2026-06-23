@@ -379,6 +379,11 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 
 // Tab updated handler: synchronizes active tab changes (title, URL, favicon) with saved metadata
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+// Keyboard shortcut handler
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === "_execute_action") return;
+});
+
 // Startup recovery: verify storage window and transition orphaned hot tabs to cold
 async function recoverState() {
   const data = await chrome.storage.local.get(["storageWindowId", "savedTabs"]);

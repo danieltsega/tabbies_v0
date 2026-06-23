@@ -3,6 +3,7 @@
   "name": "Tabbies",
   "version": "0.1.0",
   "description": "Save and organize your tabs in categories with zero-reload history preservation.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuSO7BjqLDOoChJPxJeYY5CCLhwcS7qcGWYfveXCsDxTGyyah23ATTon1Zx81k+Q191VQivvaPYYaAi8ztr3dUhiZ7ANlX4ffypyziI0yH8wAV5jZMe6tZb+TmeuboF4JqYFdMo3tlFC8tGY95mJrGet3j9Pl9su/vsH+blcuuiHShZrSsk1V3voHtoyl6HRCnZbz++cG9LURM0+j83tPVfOHw6sYngeQT5tC8d/sky+QrK7J4QoZAacDkfiBP2fICA+b2KcmGD9OwDdcfrOL8c9/yo/K3TeyJZr9BLnBnyhPc6C0WA48PGZKQdBraOGpljt2dnns9IDdtIN4kwxbrQIDAQAB",
   "permissions": [
     "storage",
     "tabs",
@@ -12,6 +13,14 @@
   "host_permissions": [
     "http://localhost:3000/"
   ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y"
+      },
+      "description": "Open Tabbies popup"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   },
