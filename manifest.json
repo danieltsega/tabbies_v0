@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Tabbies",
+  "version": "0.1.0",
+  "description": "Save and organize your tabs in categories with zero-reload history preservation.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "windows",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Tabbies"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["anchor.html", "anchor.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
