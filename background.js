@@ -25,7 +25,6 @@ async function getOrCreateStorageWindow() {
       }
     }
 
-    // Create the background storage window
     const anchorUrl = chrome.runtime.getURL("anchor.html");
     const win = await chrome.windows.create({
       url: anchorUrl,
@@ -33,9 +32,8 @@ async function getOrCreateStorageWindow() {
       type: "normal"
     });
 
-    // Minimize the window immediately to keep it in the background
-    await chrome.windows.update(win.id, { state: "minimized" });
     await chrome.storage.local.set({ storageWindowId: win.id });
+    await chrome.windows.update(win.id, { state: "minimized" });
 
     return win.id;
   })();
@@ -374,6 +372,44 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 
 // Tab updated handler: synchronizes active tab changes (title, URL, favicon) with saved metadata
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+// Startup recovery: verify storage window and transition orphaned hot tabs to cold
+async function recoverState() {
+  const data = await chrome.storage.local.get(["storageWindowId", "savedTabs"]);
+  const windowId = data.storageWindowId;
+  let savedTabs = data.savedTabs || [];
+  let changed = false;
+
+  if (windowId) {
+    try {
+      await chrome.windows.get(windowId);
+    } catch (e) {
+      await chrome.storage.local.set({ storageWindowId: null });
+      savedTabs = savedTabs.map(t => {
+        if (t.status === "hot") {
+          changed = true;
+          return { ...t, status: "cold", activeTabId: null };
+        }
+        return t;
+      });
+    }
+  } else {
+    savedTabs = savedTabs.map(t => {
+      if (t.status === "hot") {
+        changed = true;
+        return { ...t, status: "cold", activeTabId: null };
+      }
+      return t;
+    });
+  }
+
+  if (changed) {
+    await chrome.storage.local.set({ savedTabs });
+  }
+}
+
+chrome.runtime.onStartup.addListener(recoverState);
+chrome.runtime.onInstalled.addListener(recoverState);
+
   if (changeInfo.status === "complete") {
     const savedTabs = await getSavedTabs();
     let changed = false;
