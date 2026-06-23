@@ -288,7 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
     testList.appendChild(el);
   });
   
-  runBtn.addEventListener("click", async () => {
+  async function runSuite() {
     runBtn.disabled = true;
     logBox.textContent = "Starting test suite execution...\n";
     passedCount.textContent = "0";
@@ -296,6 +296,12 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let passed = 0;
     let failed = 0;
+    const logOutput = [];
+    
+    function testLog(msg) {
+      appendLog(msg);
+      logOutput.push(msg);
+    }
     
     // Reset all badges
     tests.forEach(t => {
@@ -308,14 +314,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const badge = document.getElementById(`status-${test.id}`);
       badge.className = "test-status status-running";
       badge.textContent = "Running";
-      appendLog(`\n[RUNNING] ${test.name}`);
+      testLog(`\n[RUNNING] ${test.name}`);
       
       try {
-        const success = await test.fn(appendLog);
+        const success = await test.fn(testLog);
         if (success) {
           badge.className = "test-status status-passed";
           badge.textContent = "Passed";
-          appendLog(`[PASSED] ${test.name}`);
+          testLog(`[PASSED] ${test.name}`);
           passed++;
           passedCount.textContent = passed;
         } else {
@@ -324,14 +330,35 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) {
         badge.className = "test-status status-failed";
         badge.textContent = "Failed";
-        appendLog(`[FAILED] ${test.name}: ${e.message}`);
-        if (e.stack) appendLog(e.stack);
+        testLog(`[FAILED] ${test.name}: ${e.message}`);
+        if (e.stack) testLog(e.stack);
         failed++;
         failedCount.textContent = failed;
       }
     }
     
-    appendLog(`\nExecution complete. Passed: ${passed}, Failed: ${failed}`);
+    testLog(`\nExecution complete. Passed: ${passed}, Failed: ${failed}`);
     runBtn.disabled = false;
-  });
+    return { passed, failed, logs: logOutput };
+  }
+
+  runBtn.addEventListener("click", () => runSuite());
+
+  const isAutoRun = new URLSearchParams(window.location.search).get("autorun") === "true";
+  if (isAutoRun) {
+    appendLog("Autorun query detected. Initiating suite in 1 second...");
+    setTimeout(async () => {
+      const results = await runSuite();
+      appendLog("Posting results to local server...");
+      try {
+        await fetch("http://localhost:3000/results", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(results)
+        });
+      } catch (e) {
+        appendLog("Failed to post results: " + e.message);
+      }
+    }, 1000);
+  }
 });
