@@ -54,6 +54,17 @@ async function getSavedTabs() {
   return data.savedTabs || [];
 }
 
+// === Category Management ===
+
+async function getCategories() {
+  const data = await chrome.storage.local.get("categories");
+  return data.categories || [];
+}
+
+async function setCategories(categories) {
+  await chrome.storage.local.set({ categories });
+}
+
 // Helper to save tabs list to local storage
 async function setSavedTabs(savedTabs) {
   await chrome.storage.local.set({ savedTabs });
@@ -245,6 +256,45 @@ async function handleMessage(message, sender) {
       savedTabs.splice(tabIndex, 1);
       await setSavedTabs(savedTabs);
       
+      return { success: true };
+    }
+
+    case "getAllData": {
+      const categories = await getCategories();
+      return { success: true, data: { savedTabs, categories } };
+    }
+
+    case "createCategory": {
+      const { name, emoji, color } = message;
+      const cats = await getCategories();
+      const newCat = {
+        id: "cat_" + Date.now() + "_" + Math.random().toString(36).substr(2, 7),
+        name,
+        emoji: emoji || "📁",
+        color: color || "#6b7280"
+      };
+      cats.push(newCat);
+      await setCategories(cats);
+      return { success: true, category: newCat };
+    }
+
+    case "updateCategory": {
+      const { id, name, emoji, color } = message;
+      const catsUpd = await getCategories();
+      const catIdx = catsUpd.findIndex(c => c.id === id);
+      if (catIdx === -1) throw new Error("Category not found");
+      if (name !== undefined) catsUpd[catIdx].name = name;
+      if (emoji !== undefined) catsUpd[catIdx].emoji = emoji;
+      if (color !== undefined) catsUpd[catIdx].color = color;
+      await setCategories(catsUpd);
+      return { success: true, category: catsUpd[catIdx] };
+    }
+
+    case "deleteCategory": {
+      const { id: catId } = message;
+      let catsDel = await getCategories();
+      catsDel = catsDel.filter(c => c.id !== catId);
+      await setCategories(catsDel);
       return { success: true };
     }
 
