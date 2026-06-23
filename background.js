@@ -89,8 +89,10 @@ async function handleMessage(message, sender) {
       const { tabId, categoryId } = message;
       const tab = await chrome.tabs.get(tabId);
       
-      // Check if tab is already saved
-      const existingIndex = savedTabs.findIndex(t => t.status === "active" && t.activeTabId === tabId);
+      let existingIndex = savedTabs.findIndex(t => t.activeTabId === tabId);
+      if (existingIndex === -1) {
+        existingIndex = savedTabs.findIndex(t => t.status === "cold" && t.url === tab.url);
+      }
       const now = Date.now();
       
       const tabData = {
@@ -123,8 +125,10 @@ async function handleMessage(message, sender) {
       // Move the tab to the storage window
       await chrome.tabs.move(tabId, { windowId: storageWindowId, index: -1 });
       
-      // Check if already in savedTabs
-      const existingIndex = savedTabs.findIndex(t => t.activeTabId === tabId);
+      let existingIndex = savedTabs.findIndex(t => t.activeTabId === tabId);
+      if (existingIndex === -1) {
+        existingIndex = savedTabs.findIndex(t => t.status === "cold" && t.url === tab.url);
+      }
       const now = Date.now();
       
       const tabData = {
