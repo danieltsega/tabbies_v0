@@ -1,7 +1,7 @@
 const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280"];
 const CAT_ICONS = ["📁", "💼", "🏠", "⭐", "❤️", "🎯", "📚", "🎮", "🎵", "✈️", "💡", "🛒"];
 
-let state = { savedTabs: [], categories: [], activeTab: null };
+let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null };
 let editingCategoryId = null;
 
 const $ = (id) => document.getElementById(id);
@@ -21,13 +21,34 @@ async function loadData() {
     if (res.success) {
       state.savedTabs = res.data.savedTabs;
       state.categories = res.data.categories;
+      if (state.categories.length > 0 && !state.saveCategoryId) {
+        state.saveCategoryId = state.categories[0].id;
+      }
     }
   } catch (e) {
     console.error("Failed to load data:", e);
   }
 }
 
+function renderActionBar() {
+  const sel = $("save-category-select");
+  if (!sel) return;
+  if (state.categories.length === 0) {
+    sel.style.display = "none";
+    return;
+  }
+  sel.style.display = "";
+  const currentVal = state.saveCategoryId;
+  sel.innerHTML = `
+    <option value="">No category</option>
+    ${state.categories.map(c =>
+      `<option value="${escapeHtml(c.id)}" ${c.id === currentVal ? "selected" : ""}>${escapeHtml(c.emoji || "📁")} ${escapeHtml(c.name)}</option>`
+    ).join("")}
+  `;
+}
+
 function render() {
+  renderActionBar();
   const container = $("tab-list");
   container.innerHTML = "";
   if (state.savedTabs.length === 0) {
@@ -169,7 +190,7 @@ function bindEvents() {
   $("save-active-btn").addEventListener("click", async () => {
     if (!state.activeTab) return;
     try {
-      const catId = state.categories.length > 0 ? state.categories[0].id : null;
+      const catId = state.saveCategoryId || null;
       await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: state.activeTab.id, categoryId: catId });
       await loadData();
       render();
@@ -181,13 +202,17 @@ function bindEvents() {
   $("shelve-active-btn").addEventListener("click", async () => {
     if (!state.activeTab) return;
     try {
-      const catId = state.categories.length > 0 ? state.categories[0].id : null;
+      const catId = state.saveCategoryId || null;
       await chrome.runtime.sendMessage({ action: "shelveActiveTab", tabId: state.activeTab.id, categoryId: catId });
       await loadData();
       render();
     } catch (err) {
       console.error("Shelve failed:", err);
     }
+  });
+
+  $("save-category-select").addEventListener("change", () => {
+    state.saveCategoryId = $("save-category-select").value || null;
   });
 
   $("add-category-btn").addEventListener("click", () => openCategoryModal(null));

@@ -77,6 +77,28 @@ h1 {
   gap: 6px;
 }
 
+.action-bar-select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  max-width: 110px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.action-bar-select:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.action-bar-select option {
+  background: #1e293b;
+  color: var(--text);
+}
+
 .btn-primary, .btn-secondary, .btn-ghost {
   flex: 1;
   padding: 6px 12px;
