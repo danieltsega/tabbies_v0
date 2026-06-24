@@ -228,6 +228,20 @@ main::-webkit-scrollbar-thumb:hover {
   opacity: 1;
 }
 
+.cat-open-all {
+  background: rgba(79, 70, 229, 0.1);
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: var(--accent);
+}
+
+.cat-open-all:hover {
+  background: rgba(79, 70, 229, 0.2);
+}
+
 .cat-edit:hover {
   color: var(--accent);
 }

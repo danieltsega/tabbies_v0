@@ -72,11 +72,13 @@ function renderCategory(category, tabs) {
   const div = document.createElement("div");
   div.className = "category";
   const isBuiltIn = category.id === "__uncategorized";
+  const coldCount = tabs.filter(t => t.status === "cold").length;
   div.innerHTML = `
     <div class="category-header" style="--cat-color: ${category.color}">
       <span class="cat-emoji">${category.emoji || "📁"}</span>
       <span class="cat-name">${escapeHtml(category.name)}</span>
       <span class="cat-count">${tabs.length}</span>
+      ${coldCount > 0 ? `<button class="cat-btn cat-open-all" data-id="${category.id}" title="Open all cold tabs (${coldCount})">▶ ${coldCount}</button>` : ""}
       ${isBuiltIn ? "" : `
         <button class="cat-btn cat-edit" data-id="${category.id}" title="Edit Category">✎</button>
         <button class="cat-btn cat-delete" data-id="${category.id}" title="Delete Category">✕</button>
@@ -167,6 +169,19 @@ function bindEvents() {
       }
       return;
     }
+    const openAllBtn = e.target.closest(".cat-open-all");
+    if (openAllBtn) {
+      const categoryId = openAllBtn.dataset.id;
+      try {
+        await chrome.runtime.sendMessage({ action: "openAllColdTabs", categoryId });
+        await loadData();
+        render();
+      } catch (err) {
+        console.error("Open all failed:", err);
+      }
+      return;
+    }
+
     const editBtn = e.target.closest(".cat-edit");
     if (editBtn) {
       openCategoryModal(editBtn.dataset.id);

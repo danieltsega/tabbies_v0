@@ -249,6 +249,26 @@ async function handleMessage(message, sender) {
       return { success: true, tab };
     }
 
+    case "openAllColdTabs": {
+      const { categoryId } = message;
+      const coldTabs = savedTabs.filter(t => t.categoryId === categoryId && t.status === "cold");
+      if (coldTabs.length === 0) return { success: true, opened: [] };
+      const targetWindowId = await getTargetWindow();
+      const opened = [];
+      for (const tab of coldTabs) {
+        const newChromeTab = await chrome.tabs.create({
+          windowId: targetWindowId,
+          url: tab.url,
+          active: false
+        });
+        tab.status = "active";
+        tab.activeTabId = newChromeTab.id;
+        opened.push(tab);
+      }
+      await setSavedTabs(savedTabs);
+      return { success: true, opened };
+    }
+
     case "focusActiveTab": {
       const { savedTabId } = message;
       const tab = savedTabs.find(t => t.id === savedTabId);
