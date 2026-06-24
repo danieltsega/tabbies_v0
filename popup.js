@@ -75,10 +75,22 @@ function renderTabItem(tab) {
       <span class="tab-title" title="${escapeHtml(tab.title)}">${escapeHtml(tab.title)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
+        ${state.categories.length > 0 ? categorySelectHTML(tab) : ""}
         ${actions.map((a) => `<button class="act-btn act-${a.action}" data-action="${a.action}" data-id="${escapeHtml(tab.id)}">${a.label}</button>`).join("")}
       </div>
     </div>
   `;
+}
+
+function categorySelectHTML(tab) {
+  const options = state.categories.map(c =>
+    `<option value="${escapeHtml(c.id)}" ${c.id === tab.categoryId ? "selected" : ""}>${escapeHtml(c.emoji || "📁")} ${escapeHtml(c.name)}</option>`
+  ).join("");
+  const hasMatchingCat = tab.categoryId && state.categories.some(c => c.id === tab.categoryId);
+  return `<select class="cat-select" data-id="${escapeHtml(tab.id)}" title="Move to category">
+    <option value="" ${hasMatchingCat ? "" : "selected"}>No category</option>
+    ${options}
+  </select>`;
 }
 
 function getActions(tab) {
@@ -105,6 +117,20 @@ function getActions(tab) {
 }
 
 function bindEvents() {
+  $("tab-list").addEventListener("change", async (e) => {
+    const sel = e.target.closest(".cat-select");
+    if (!sel) return;
+    const savedTabId = sel.dataset.id;
+    const newCategoryId = sel.value || null;
+    try {
+      await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { categoryId: newCategoryId } });
+      await loadData();
+      render();
+    } catch (err) {
+      console.error("Category move failed:", err);
+    }
+  });
+
   $("tab-list").addEventListener("click", async (e) => {
     const btn = e.target.closest(".act-btn");
     if (btn) {

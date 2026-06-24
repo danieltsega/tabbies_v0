@@ -277,6 +277,29 @@ main::-webkit-scrollbar-thumb {
   color: var(--text);
 }
 
+.cat-select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  max-width: 100px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cat-select:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.cat-select option {
+  background: #1e293b;
+  color: var(--text);
+}
+
 .act-removeSavedTab:hover {
   color: var(--danger);
   border-color: rgba(239, 68, 68, 0.3);
