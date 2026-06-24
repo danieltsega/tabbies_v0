@@ -119,16 +119,30 @@ h1 {
 main {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) rgba(255, 255, 255, 0.02);
 }
 
 main::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+}
+
+main::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
 }
 
 main::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+
+main::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Category */
