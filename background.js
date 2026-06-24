@@ -269,6 +269,31 @@ async function handleMessage(message, sender) {
       return { success: true, opened };
     }
 
+    case "moveTab": {
+      const { savedTabId, newCategoryId, targetIndex } = message;
+      const tabIndex = savedTabs.findIndex(t => t.id === savedTabId);
+      if (tabIndex === -1) throw new Error("Saved tab not found");
+      const [tab] = savedTabs.splice(tabIndex, 1);
+      if (newCategoryId !== undefined) {
+        tab.categoryId = newCategoryId;
+      }
+      const insertAt = Math.max(0, Math.min(targetIndex ?? savedTabs.length, savedTabs.length));
+      savedTabs.splice(insertAt, 0, tab);
+      tab.savedAt = Date.now();
+      await setSavedTabs(savedTabs);
+      return { success: true, tab };
+    }
+
+    case "reorderCategories": {
+      const { orderedIds } = message;
+      const cats = await getCategories();
+      const reordered = orderedIds.map(id => cats.find(c => c.id === id)).filter(Boolean);
+      const remaining = cats.filter(c => !orderedIds.includes(c.id));
+      await setCategories([...reordered, ...remaining]);
+      rebuildContextMenus();
+      return { success: true };
+    }
+
     case "focusActiveTab": {
       const { savedTabId } = message;
       const tab = savedTabs.find(t => t.id === savedTabId);
