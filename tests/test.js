@@ -542,6 +542,142 @@ const tests = [
       await chrome.tabs.remove(testTab.id);
       return true;
     }
+  },
+  // === Drag-and-Drop / Reorder Tests ===
+  {
+    id: "move-tab-within-category",
+    name: "Move Tab Within Same Category",
+    desc: "Verifies that moveTab reorders a tab within its category",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "ReorderCat", emoji: "🔀", color: "#8b5cf6" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const tabs = [];
+      for (let i = 1; i <= 3; i++) {
+        const t = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+        const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: t.id, categoryId: catId });
+        tabs.push(saveRes.tab);
+        log(`Created tab ${i}: ${saveRes.tab.id}`);
+      }
+
+      const savedTabsBefore = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const idsBefore = savedTabsBefore.filter(t => t.categoryId === catId).map(t => t.id);
+      log(`Order before: ${idsBefore.join(", ")}`);
+
+      // Move the third tab to index 0 (global index within savedTabs)
+      const moveRes = await chrome.runtime.sendMessage({
+        action: "moveTab",
+        savedTabId: tabs[2].id,
+        targetIndex: 0
+      });
+      if (!moveRes.success) throw new Error("moveTab failed: " + moveRes.error);
+
+      const savedTabsAfter = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const idsAfter = savedTabsAfter.filter(t => t.categoryId === catId).map(t => t.id);
+      log(`Order after: ${idsAfter.join(", ")}`);
+
+      if (idsAfter[0] !== tabs[2].id) throw new Error(`Expected first tab to be ${tabs[2].id}, got ${idsAfter[0]}`);
+
+      for (const tab of tabs) {
+        await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: tab.id });
+      }
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
+  {
+    id: "move-tab-to-different-category",
+    name: "Move Tab Between Categories",
+    desc: "Verifies that moveTab changes categoryId and places the tab in the target category",
+    fn: async (log) => {
+      const catARes = await chrome.runtime.sendMessage({ action: "createCategory", name: "CatA", emoji: "🅰️", color: "#ef4444" });
+      const catBRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "CatB", emoji: "🅱️", color: "#3b82f6" });
+      const catA = catARes.category.id;
+      const catB = catBRes.category.id;
+      log(`Categories: A=${catA}, B=${catB}`);
+
+      const tabA = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabA.id, categoryId: catA });
+      log(`Saved tab in CatA: ${saveRes.tab.id}`);
+
+      const moveRes = await chrome.runtime.sendMessage({
+        action: "moveTab",
+        savedTabId: saveRes.tab.id,
+        newCategoryId: catB,
+        targetIndex: 0
+      });
+      if (!moveRes.success) throw new Error("moveTab failed: " + moveRes.error);
+      log(`Moved to CatB, new categoryId: ${moveRes.tab.categoryId}`);
+
+      if (moveRes.tab.categoryId !== catB) throw new Error(`categoryId is "${moveRes.tab.categoryId}", expected "${catB}"`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(tabA.id);
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catA });
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catB });
+      return true;
+    }
+  },
+  {
+    id: "reorder-categories",
+    name: "Reorder Categories",
+    desc: "Verifies that reorderCategories updates the category order in storage",
+    fn: async (log) => {
+      const ids = [];
+      for (const name of ["First", "Second", "Third"]) {
+        const res = await chrome.runtime.sendMessage({ action: "createCategory", name, emoji: "📁", color: "#6b7280" });
+        ids.push(res.category.id);
+      }
+      log(`Created categories: ${ids.join(", ")}`);
+
+      const reversed = [ids[2], ids[1], ids[0]];
+      log(`Requesting order: ${reversed.join(", ")}`);
+      const reorderRes = await chrome.runtime.sendMessage({ action: "reorderCategories", orderedIds: reversed });
+      if (!reorderRes.success) throw new Error("reorderCategories failed");
+
+      const cats = (await chrome.runtime.sendMessage({ action: "getAllData" })).data.categories;
+      const orderAfter = cats.map(c => c.id);
+      log(`Order after: ${orderAfter.join(", ")}`);
+
+      if (orderAfter[0] !== ids[2] || orderAfter[1] !== ids[1] || orderAfter[2] !== ids[0]) {
+        throw new Error(`Unexpected order: ${orderAfter.join(", ")}`);
+      }
+
+      for (const id of ids) {
+        await chrome.runtime.sendMessage({ action: "deleteCategory", id });
+      }
+      return true;
+    }
+  },
+  {
+    id: "move-tab-index-zero",
+    name: "Move Tab to Index Zero",
+    desc: "Verifies that moving a tab to global index 0 places it at the very beginning",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "IndexZero", emoji: "0️⃣", color: "#22c55e" });
+      const catId = catRes.category.id;
+
+      const tabInfos = [];
+      for (let i = 1; i <= 2; i++) {
+        const t = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+        const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: t.id, categoryId: catId });
+        tabInfos.push(saveRes.tab);
+      }
+
+      // Move the second tab to index 0
+      await chrome.runtime.sendMessage({ action: "moveTab", savedTabId: tabInfos[1].id, targetIndex: 0 });
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const catTabs = savedTabs.filter(t => t.categoryId === catId);
+      if (catTabs[0].id !== tabInfos[1].id) throw new Error(`Expected first tab to be ${tabInfos[1].id}, got ${catTabs[0].id}`);
+
+      for (const tab of tabInfos) {
+        await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: tab.id });
+      }
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
   }
 ];
 
