@@ -420,6 +420,128 @@ const tests = [
         throw e;
       }
     }
+  },
+  // === Category-Aware Save/Shelve Tests ===
+  {
+    id: "category-aware-save",
+    name: "Category-Aware Save Uses Selected Category",
+    desc: "Verifies that saving a tab respects the selected save category ID",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "SaveTarget", emoji: "🎯", color: "#ef4444" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: catId });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab with categoryId: "${saveRes.tab.categoryId}"`);
+
+      if (saveRes.tab.categoryId !== catId) throw new Error(`categoryId is "${saveRes.tab.categoryId}", expected "${catId}"`);
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab = savedTabs.find(t => t.id === savedTabId);
+      if (tab.categoryId !== catId) throw new Error("categoryId mismatch in storage after save");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
+  {
+    id: "category-aware-save-no-category",
+    name: "Category-Aware Save With No Category",
+    desc: "Verifies that saving a tab with null categoryId produces an uncategorized tab",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: null });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab with categoryId: "${saveRes.tab.categoryId}"`);
+
+      if (saveRes.tab.categoryId !== null) throw new Error(`categoryId is not null: "${saveRes.tab.categoryId}"`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
+  },
+  {
+    id: "open-all-cold-tabs",
+    name: "Open All Cold Tabs in Category",
+    desc: "Verifies that openAllColdTabs opens every cold tab and sets status to active",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "BulkRestore", emoji: "📦", color: "#22c55e" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const now = Date.now();
+      const coldTabs = [
+        { id: "bulk_test_1_" + now, categoryId: catId, url: TEST_URL_A, title: "Bulk 1", favIconUrl: "", status: "cold", activeTabId: null, savedAt: now },
+        { id: "bulk_test_2_" + now, categoryId: catId, url: TEST_URL_B, title: "Bulk 2", favIconUrl: "", status: "cold", activeTabId: null, savedAt: now }
+      ];
+      let savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      savedTabs.push(...coldTabs);
+      await chrome.storage.local.set({ savedTabs });
+      log("Injected 2 cold tabs into category");
+
+      const res = await chrome.runtime.sendMessage({ action: "openAllColdTabs", categoryId: catId });
+      if (!res.success) throw new Error("openAllColdTabs failed: " + res.error);
+      log(`Opened ${res.opened.length} tabs`);
+
+      if (res.opened.length !== 2) throw new Error(`Expected 2 opened tabs, got ${res.opened.length}`);
+
+      savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab1 = savedTabs.find(t => t.id === coldTabs[0].id);
+      const tab2 = savedTabs.find(t => t.id === coldTabs[1].id);
+      if (tab1.status !== "active") throw new Error("Tab 1 status is not active: " + tab1.status);
+      if (tab2.status !== "active") throw new Error("Tab 2 status is not active: " + tab2.status);
+      if (!tab1.activeTabId) throw new Error("Tab 1 activeTabId is null");
+      if (!tab2.activeTabId) throw new Error("Tab 2 activeTabId is null");
+      log("Both cold tabs are now active with valid chrome tab IDs");
+
+      await chrome.tabs.remove(tab1.activeTabId);
+      await chrome.tabs.remove(tab2.activeTabId);
+      const cleaned = savedTabs.filter(t => !coldTabs.some(ct => ct.id === t.id));
+      await chrome.storage.local.set({ savedTabs: cleaned });
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
+  {
+    id: "open-all-cold-tabs-empty",
+    name: "Open All Cold Tabs Returns Empty for No-Op",
+    desc: "Verifies that openAllColdTabs returns an empty array when no cold tabs exist",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "EmptyCat", emoji: "🫙", color: "#6b7280" });
+      const catId = catRes.category.id;
+      log(`Created empty category: ${catId}`);
+
+      const res = await chrome.runtime.sendMessage({ action: "openAllColdTabs", categoryId: catId });
+      if (!res.success) throw new Error("openAllColdTabs failed: " + res.error);
+      log(`Opened ${res.opened.length} tabs (expected 0)`);
+
+      if (res.opened.length !== 0) throw new Error(`Expected 0 opened tabs, got ${res.opened.length}`);
+
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
+  {
+    id: "save-to-nonexistent-category",
+    name: "Save Tab to Non-Existent Category",
+    desc: "Verifies that saving a tab with a bogus categoryId does not throw",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "this-category-does-not-exist" });
+      if (!saveRes.success) throw new Error("Save failed: " + saveRes.error);
+      log(`Saved tab with categoryId: "${saveRes.tab.categoryId}"`);
+
+      if (saveRes.tab.categoryId !== "this-category-does-not-exist") throw new Error("categoryId was modified");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
   }
 ];
 
