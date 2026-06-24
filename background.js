@@ -267,6 +267,23 @@ async function handleMessage(message, sender) {
       return { success: true };
     }
 
+    case "updateSavedTab": {
+      const { savedTabId, updates } = message;
+      const tabIndex = savedTabs.findIndex(t => t.id === savedTabId);
+      if (tabIndex === -1) throw new Error("Saved tab not found");
+      if (typeof updates !== "object" || updates === null) throw new Error("Invalid updates payload");
+      const allowed = ["categoryId", "title", "url", "favIconUrl"];
+      for (const key of Object.keys(updates)) {
+        if (!allowed.includes(key)) {
+          throw new Error("Cannot update field: " + key);
+        }
+      }
+      Object.assign(savedTabs[tabIndex], updates);
+      savedTabs[tabIndex].savedAt = Date.now();
+      await setSavedTabs(savedTabs);
+      return { success: true, tab: savedTabs[tabIndex] };
+    }
+
     case "getAllData": {
       const categories = await getCategories();
       return { success: true, data: { savedTabs, categories } };
