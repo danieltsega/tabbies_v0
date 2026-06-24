@@ -260,6 +260,166 @@ const tests = [
       await chrome.storage.local.set({ savedTabs: cleanedTabs });
       return true;
     }
+  },
+  // === Category Move Tests ===
+  {
+    id: "move-tab-to-category",
+    name: "Move Saved Tab to Different Category",
+    desc: "Verifies moving a saved tab to another category updates its categoryId",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "Move Test Cat", emoji: "📁", color: "#3b82f6" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "initial-cat" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab: ${savedTabId} with categoryId: "initial-cat"`);
+
+      const moveRes = await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { categoryId: catId } });
+      if (!moveRes.success) throw new Error("Move action failed: " + moveRes.error);
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const movedTab = savedTabs.find(t => t.id === savedTabId);
+      log(`Tab categoryId after move: "${movedTab.categoryId}"`);
+      if (movedTab.categoryId !== catId) throw new Error(`categoryId is "${movedTab.categoryId}", expected "${catId}"`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
+  {
+    id: "move-tab-to-no-category",
+    name: "Move Saved Tab to No Category",
+    desc: "Verifies setting a tab's categoryId to null removes it from its category",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "temp-cat-for-move-test" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab with categoryId: "temp-cat-for-move-test"`);
+
+      const moveRes = await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { categoryId: null } });
+      if (!moveRes.success) throw new Error("Move to no-category failed: " + moveRes.error);
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const movedTab = savedTabs.find(t => t.id === savedTabId);
+      log(`Tab categoryId after move: "${movedTab.categoryId}"`);
+      if (movedTab.categoryId !== null) throw new Error(`categoryId is "${movedTab.categoryId}", expected null`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
+  },
+  {
+    id: "move-tab-preserves-data",
+    name: "Move Tab Preserves Other Fields",
+    desc: "Verifies that title, url, favIconUrl, and status remain unchanged when moving categories",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "preserve-test-cat" });
+      const savedTabId = saveRes.tab.id;
+      const originalTitle = saveRes.tab.title;
+      const originalUrl = saveRes.tab.url;
+      const originalFavIcon = saveRes.tab.favIconUrl;
+      const originalStatus = saveRes.tab.status;
+      log(`Original: title="${originalTitle}", status="${originalStatus}"`);
+
+      await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { categoryId: "new-category-for-preserve-test" } });
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const updatedTab = savedTabs.find(t => t.id === savedTabId);
+      log(`After move: title="${updatedTab.title}", status="${updatedTab.status}", categoryId="${updatedTab.categoryId}"`);
+
+      if (updatedTab.title !== originalTitle) throw new Error(`title changed from "${originalTitle}" to "${updatedTab.title}"`);
+      if (updatedTab.url !== originalUrl) throw new Error(`url changed from "${originalUrl}" to "${updatedTab.url}"`);
+      if (updatedTab.favIconUrl !== originalFavIcon) throw new Error(`favIconUrl changed from "${originalFavIcon}" to "${updatedTab.favIconUrl}"`);
+      if (updatedTab.status !== originalStatus) throw new Error(`status changed from "${originalStatus}" to "${updatedTab.status}"`);
+      if (updatedTab.categoryId !== "new-category-for-preserve-test") throw new Error(`categoryId is "${updatedTab.categoryId}", expected "new-category-for-preserve-test"`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
+  },
+  {
+    id: "move-nonexistent-tab",
+    name: "Move Non-Existent Tab Returns Error",
+    desc: "Verifies that updateSavedTab throws when the savedTabId does not exist",
+    fn: async (log) => {
+      try {
+        await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId: "no-such-tab-id", updates: { categoryId: "cat" } });
+        throw new Error("Should have thrown for non-existent tab");
+      } catch (e) {
+        if (e.message.includes("Saved tab not found")) {
+          log("Correctly rejected: " + e.message);
+          return true;
+        }
+        throw e;
+      }
+    }
+  },
+  {
+    id: "update-forbidden-field",
+    name: "Update Forbidden Field Is Rejected",
+    desc: "Verifies that updateSavedTab rejects attempts to modify status, id, or activeTabId",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "forbidden-test" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab: ${savedTabId}`);
+
+      try {
+        await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { status: "cold" } });
+        throw new Error("Should have rejected status update");
+      } catch (e) {
+        if (e.message.includes("Cannot update field: status")) {
+          log("Correctly rejected status update: " + e.message);
+        } else {
+          throw e;
+        }
+      }
+
+      try {
+        await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { id: "new-id" } });
+        throw new Error("Should have rejected id update");
+      } catch (e) {
+        if (e.message.includes("Cannot update field: id")) {
+          log("Correctly rejected id update: " + e.message);
+        } else {
+          throw e;
+        }
+      }
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab = savedTabs.find(t => t.id === savedTabId);
+      if (tab.status !== "active") throw new Error("Status was modified despite rejection");
+      if (tab.id !== savedTabId) throw new Error("ID was modified despite rejection");
+      log("Tab state unchanged after rejected updates");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
+  },
+  {
+    id: "update-empty-payload-rejected",
+    name: "Update With Null Updates Is Rejected",
+    desc: "Verifies that updateSavedTab rejects a null updates payload",
+    fn: async (log) => {
+      try {
+        await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId: "any-id", updates: null });
+        throw new Error("Should have rejected null updates");
+      } catch (e) {
+        if (e.message.includes("Invalid updates payload")) {
+          log("Correctly rejected null updates: " + e.message);
+          return true;
+        }
+        throw e;
+      }
+    }
   }
 ];
 
