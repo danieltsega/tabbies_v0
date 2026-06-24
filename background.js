@@ -316,6 +316,7 @@ async function handleMessage(message, sender) {
       };
       cats.push(newCat);
       await setCategories(cats);
+      rebuildContextMenus();
       return { success: true, category: newCat };
     }
 
@@ -328,6 +329,7 @@ async function handleMessage(message, sender) {
       if (emoji !== undefined) catsUpd[catIdx].emoji = emoji;
       if (color !== undefined) catsUpd[catIdx].color = color;
       await setCategories(catsUpd);
+      rebuildContextMenus();
       return { success: true, category: catsUpd[catIdx] };
     }
 
@@ -336,6 +338,7 @@ async function handleMessage(message, sender) {
       let catsDel = await getCategories();
       catsDel = catsDel.filter(c => c.id !== catId);
       await setCategories(catsDel);
+      rebuildContextMenus();
       return { success: true };
     }
 
@@ -453,6 +456,70 @@ async function recoverState() {
 
 chrome.runtime.onStartup.addListener(recoverState);
 chrome.runtime.onInstalled.addListener(recoverState);
+
+// === Context Menu ===
+
+async function rebuildContextMenus() {
+  await chrome.contextMenus.removeAll();
+  const categories = await getCategories();
+
+  chrome.contextMenus.create({
+    id: "tabbies-root",
+    title: "Tabbies",
+    contexts: ["page"]
+  });
+
+  chrome.contextMenus.create({
+    id: "tabbies-save",
+    parentId: "tabbies-root",
+    title: "Save Tab",
+    contexts: ["page"]
+  });
+
+  chrome.contextMenus.create({
+    id: "tabbies-shelve",
+    parentId: "tabbies-root",
+    title: "Shelve Tab",
+    contexts: ["page"]
+  });
+
+  const addItems = (prefix, parentId) => {
+    if (categories.length === 0) {
+      chrome.contextMenus.create({
+        id: `${prefix}__none`,
+        parentId,
+        title: "No category",
+        contexts: ["page"]
+      });
+    } else {
+      categories.forEach(cat => {
+        chrome.contextMenus.create({
+          id: `${prefix}${cat.id}`,
+          parentId,
+          title: `${cat.emoji || "📁"} ${cat.name}`,
+          contexts: ["page"]
+        });
+      });
+    }
+  };
+
+  addItems("tabbies-save-", "tabbies-save");
+  addItems("tabbies-shelve-", "tabbies-shelve");
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  const id = info.menuItemId;
+  if (id.startsWith("tabbies-save-")) {
+    const categoryId = id.replace("tabbies-save-", "");
+    await handleMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: categoryId === "__none" ? null : categoryId }, { tab });
+  } else if (id.startsWith("tabbies-shelve-")) {
+    const categoryId = id.replace("tabbies-shelve-", "");
+    await handleMessage({ action: "shelveActiveTab", tabId: tab.id, categoryId: categoryId === "__none" ? null : categoryId }, { tab });
+  }
+});
+
+chrome.runtime.onStartup.addListener(() => rebuildContextMenus());
+chrome.runtime.onInstalled.addListener(() => rebuildContextMenus());
 
 // Tab updated handler: synchronizes active tab changes (title, URL, favicon) with saved metadata
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
