@@ -74,7 +74,7 @@ function renderCategory(category, tabs) {
   const isBuiltIn = category.id === "__uncategorized";
   const coldCount = tabs.filter(t => t.status === "cold").length;
   div.innerHTML = `
-    <div class="category-header" style="--cat-color: ${category.color}">
+    <div class="category-header" draggable="${isBuiltIn ? "false" : "true"}" data-category-id="${category.id}" style="--cat-color: ${category.color}">
       <span class="cat-emoji">${category.emoji || "📁"}</span>
       <span class="cat-name">${escapeHtml(category.name)}</span>
       <span class="cat-count">${tabs.length}</span>
@@ -84,7 +84,7 @@ function renderCategory(category, tabs) {
         <button class="cat-btn cat-delete" data-id="${category.id}" title="Delete Category">✕</button>
       `}
     </div>
-    <div class="tab-list">${tabs.map((t) => renderTabItem(t)).join("")}</div>
+    <div class="tab-list" data-category-id="${category.id}">${tabs.map((t) => renderTabItem(t)).join("")}</div>
   `;
   return div;
 }
@@ -93,7 +93,7 @@ function renderTabItem(tab) {
   const actions = getActions(tab);
   const statusLabels = { active: "Active", hot: "Shelved", cold: "Cold" };
   return `
-    <div class="tab-item" data-id="${escapeHtml(tab.id)}">
+    <div class="tab-item" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
       <img class="favicon" src="${escapeHtml(tab.favIconUrl || "")}" onerror="this.style.display='none'" />
       <span class="tab-title" title="${escapeHtml(tab.title)}">${escapeHtml(tab.title)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
@@ -139,7 +139,118 @@ function getActions(tab) {
   }
 }
 
+let dragState = null;
+
+function dropIndexFromMouse(catList, mouseY) {
+  const items = [...catList.querySelectorAll(".tab-item")];
+  for (let i = 0; i < items.length; i++) {
+    const r = items[i].getBoundingClientRect();
+    if (mouseY < r.top + r.height / 2) return i;
+  }
+  return items.length;
+}
+
+function categoryDropIndexFromMouse(mouseY) {
+  const headers = [...document.querySelectorAll(".category > .category-header[data-category-id]")];
+  for (let i = 0; i < headers.length; i++) {
+    const r = headers[i].getBoundingClientRect();
+    if (mouseY < r.top + r.height / 2) return i;
+  }
+  return headers.length;
+}
+
+function globalTabIndex(categoryId, localIndex) {
+  let count = 0;
+  for (let i = 0; i < state.savedTabs.length; i++) {
+    const c = state.savedTabs[i].categoryId || null;
+    if (c === (categoryId || null)) {
+      if (count === localIndex) return i;
+      count++;
+    }
+  }
+  return state.savedTabs.length;
+}
+
+function setupDragDrop() {
+  const list = $("tab-list");
+
+  list.addEventListener("dragstart", (e) => {
+    const item = e.target.closest(".tab-item");
+    if (item) {
+      dragState = { type: "tab", savedTabId: item.dataset.id, sourceCategoryId: item.dataset.category };
+      e.dataTransfer.effectAllowed = "move";
+      item.classList.add("dragging");
+      return;
+    }
+    const cat = e.target.closest(".category-header[data-category-id]");
+    if (cat && cat.draggable !== false) {
+      dragState = { type: "category", categoryId: cat.dataset.categoryId };
+      e.dataTransfer.effectAllowed = "move";
+      cat.classList.add("dragging");
+    }
+  });
+
+  list.addEventListener("dragend", () => {
+    document.querySelectorAll(".dragging, .drag-over").forEach(el => el.classList.remove("dragging", "drag-over"));
+    dragState = null;
+  });
+
+  list.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  });
+
+  list.addEventListener("dragenter", (e) => {
+    const target = e.target.closest(".tab-list[data-category-id], #tab-list");
+    if (target) target.classList.add("drag-over");
+  });
+
+  list.addEventListener("dragleave", (e) => {
+    const target = e.target.closest(".tab-list[data-category-id], #tab-list");
+    if (target && !target.contains(e.relatedTarget)) {
+      target.classList.remove("drag-over");
+    }
+  });
+
+  list.addEventListener("drop", (e) => {
+    e.preventDefault();
+    document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+    if (!dragState) return;
+
+    if (dragState.type === "tab") {
+      const catList = e.target.closest(".tab-list[data-category-id]");
+      if (!catList) return;
+      const targetCategoryId = catList.dataset.categoryId;
+      const localIdx = dropIndexFromMouse(catList, e.clientY);
+      const globalIdx = globalTabIndex(targetCategoryId, localIdx);
+      chrome.runtime.sendMessage({
+        action: "moveTab",
+        savedTabId: dragState.savedTabId,
+        newCategoryId: targetCategoryId || null,
+        targetIndex: globalIdx
+      }).then(() => loadData().then(render)).catch(err => console.error("Move failed:", err));
+      dragState = null;
+      return;
+    }
+
+    if (dragState.type === "category") {
+      const container = e.target.closest("#tab-list");
+      if (!container) return;
+      const localIdx = categoryDropIndexFromMouse(e.clientY);
+      const ids = [...document.querySelectorAll(".category > .category-header[data-category-id]")].map(h => h.dataset.categoryId);
+      const withMoved = ids.filter(id => id !== dragState.categoryId);
+      withMoved.splice(Math.min(localIdx, withMoved.length), 0, dragState.categoryId);
+      chrome.runtime.sendMessage({ action: "reorderCategories", orderedIds: withMoved })
+        .then(() => loadData().then(render))
+        .catch(err => console.error("Reorder failed:", err));
+      dragState = null;
+    }
+  });
+}
+
 function bindEvents() {
+  setupDragDrop();
+
   $("tab-list").addEventListener("change", async (e) => {
     const sel = e.target.closest(".cat-select");
     if (!sel) return;
@@ -160,6 +271,7 @@ function bindEvents() {
       e.stopPropagation();
       const action = btn.dataset.action;
       const savedTabId = btn.dataset.id;
+      if (action === "removeSavedTab" && !confirm("Remove this saved tab?")) return;
       try {
         await chrome.runtime.sendMessage({ action, savedTabId });
         await loadData();
