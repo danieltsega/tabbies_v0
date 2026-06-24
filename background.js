@@ -67,7 +67,23 @@ async function setCategories(categories) {
 // Helper to save tabs list to local storage
 async function setSavedTabs(savedTabs) {
   await chrome.storage.local.set({ savedTabs });
+  await updateBadge();
 }
+
+// Update the extension toolbar badge with the count of saved tabs
+async function updateBadge() {
+  const data = await chrome.storage.local.get("savedTabs");
+  const count = (data.savedTabs || []).length;
+  await chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" });
+  await chrome.action.setBadgeBackgroundColor({ color: "#4f46e5" });
+}
+
+// Listen for external storage changes to keep the badge in sync
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && "savedTabs" in changes) {
+    updateBadge();
+  }
+});
 
 // Get a target normal window, excluding the storage window
 async function getTargetWindow() {
@@ -394,8 +410,6 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
   }
 });
 
-// Tab updated handler: synchronizes active tab changes (title, URL, favicon) with saved metadata
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // Keyboard shortcut handler
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === "_execute_action") return;
@@ -434,11 +448,14 @@ async function recoverState() {
   if (changed) {
     await chrome.storage.local.set({ savedTabs });
   }
+  await updateBadge();
 }
 
 chrome.runtime.onStartup.addListener(recoverState);
 chrome.runtime.onInstalled.addListener(recoverState);
 
+// Tab updated handler: synchronizes active tab changes (title, URL, favicon) with saved metadata
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
     const savedTabs = await getSavedTabs();
     let changed = false;
