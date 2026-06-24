@@ -277,7 +277,9 @@ async function handleMessage(message, sender) {
       if (newCategoryId !== undefined) {
         tab.categoryId = newCategoryId;
       }
-      const insertAt = Math.max(0, Math.min(targetIndex ?? savedTabs.length, savedTabs.length));
+      let insertAt = targetIndex ?? savedTabs.length;
+      if (tabIndex < insertAt) insertAt = Math.max(0, insertAt - 1);
+      insertAt = Math.min(insertAt, savedTabs.length);
       savedTabs.splice(insertAt, 0, tab);
       tab.savedAt = Date.now();
       await setSavedTabs(savedTabs);
