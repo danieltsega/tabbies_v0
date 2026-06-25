@@ -228,6 +228,20 @@ main::-webkit-scrollbar-thumb:hover {
   opacity: 1;
 }
 
+.cat-archive {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: var(--danger);
+}
+
+.cat-archive:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
 .cat-open-all {
   background: rgba(79, 70, 229, 0.1);
   border: 1px solid rgba(79, 70, 229, 0.15);
@@ -388,6 +402,32 @@ main::-webkit-scrollbar-thumb:hover {
 .act-removeSavedTab:hover {
   color: var(--danger);
   border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Search bar */
+.search-bar {
+  margin-top: 8px;
+}
+
+.search-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-input:focus {
+  border-color: var(--accent);
 }
 
 /* Empty state */

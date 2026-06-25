@@ -296,6 +296,61 @@ async function handleMessage(message, sender) {
       return { success: true };
     }
 
+    case "saveAllTabs": {
+      const { windowId, categoryId } = message;
+      const tabs = await chrome.tabs.query({ windowId });
+      const saved = [];
+      for (const tab of tabs) {
+        if (tab.url && (tab.url.startsWith("chrome://") || tab.url.startsWith("about:") || tab.url.startsWith("devtools://") || tab.url.startsWith("edge://"))) {
+          continue;
+        }
+        let existingIndex = savedTabs.findIndex(t => t.activeTabId === tab.id);
+        if (existingIndex === -1) {
+          existingIndex = savedTabs.findIndex(t => t.status === "cold" && t.url === tab.url);
+        }
+        const now = Date.now();
+        const tabData = {
+          id: existingIndex >= 0 ? savedTabs[existingIndex].id : "tab_" + now + "_" + Math.random().toString(36).substr(2, 5),
+          categoryId,
+          url: tab.url,
+          title: tab.title || "Untitled Tab",
+          favIconUrl: tab.favIconUrl || "",
+          status: "active",
+          activeTabId: tab.id,
+          savedAt: existingIndex >= 0 ? savedTabs[existingIndex].savedAt : now
+        };
+        if (existingIndex >= 0) {
+          savedTabs[existingIndex] = tabData;
+        } else {
+          savedTabs.push(tabData);
+        }
+        saved.push(tabData);
+      }
+      await setSavedTabs(savedTabs);
+      return { success: true, saved, count: saved.length };
+    }
+
+    case "archiveCategory": {
+      const { categoryId } = message;
+      let changed = false;
+      let archivedCount = 0;
+      for (const tab of savedTabs) {
+        if (tab.categoryId === categoryId && (tab.status === "active" || tab.status === "hot")) {
+          if (tab.activeTabId) {
+            try { await chrome.tabs.remove(tab.activeTabId); } catch (e) {}
+          }
+          tab.status = "cold";
+          tab.activeTabId = null;
+          changed = true;
+          archivedCount++;
+        }
+      }
+      if (changed) {
+        await setSavedTabs(savedTabs);
+      }
+      return { success: true, archived: archivedCount };
+    }
+
     case "focusActiveTab": {
       const { savedTabId } = message;
       const tab = savedTabs.find(t => t.id === savedTabId);

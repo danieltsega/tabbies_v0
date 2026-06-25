@@ -1,7 +1,7 @@
 const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280"];
 const CAT_ICONS = ["📁", "💼", "🏠", "⭐", "❤️", "🎯", "📚", "🎮", "🎵", "✈️", "💡", "🛒"];
 
-let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null };
+let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "" };
 let editingCategoryId = null;
 
 const $ = (id) => document.getElementById(id);
@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 async function loadData() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  state.activeTab = tab ? { id: tab.id, url: tab.url, title: tab.title, favIconUrl: tab.favIconUrl } : null;
+  state.activeTab = tab ? { id: tab.id, url: tab.url, title: tab.title, favIconUrl: tab.favIconUrl, windowId: tab.windowId } : null;
   try {
     const res = await chrome.runtime.sendMessage({ action: "getAllData" });
     if (res.success) {
@@ -47,20 +47,34 @@ function renderActionBar() {
   `;
 }
 
+function getFilteredTabs() {
+  if (!state.searchQuery) return state.savedTabs;
+  const q = state.searchQuery.toLowerCase();
+  return state.savedTabs.filter(t =>
+    (t.title && t.title.toLowerCase().includes(q)) ||
+    (t.url && t.url.toLowerCase().includes(q))
+  );
+}
+
 function render() {
   renderActionBar();
   const container = $("tab-list");
   container.innerHTML = "";
-  if (state.savedTabs.length === 0) {
-    container.innerHTML = `<div class="empty-state">No saved tabs yet.<br>Use the buttons above to save or shelve your current tab.</div>`;
+  const visibleTabs = getFilteredTabs();
+  if (visibleTabs.length === 0) {
+    container.innerHTML = state.searchQuery
+      ? `<div class="empty-state">No tabs matching "${escapeHtml(state.searchQuery)}"</div>`
+      : `<div class="empty-state">No saved tabs yet.<br>Use the buttons above to save or shelve your current tab.</div>`;
     return;
   }
   const catIds = new Set(state.categories.map((c) => c.id));
   state.categories.forEach((cat) => {
-    const tabs = state.savedTabs.filter((t) => t.categoryId === cat.id);
-    container.appendChild(renderCategory(cat, tabs));
+    const tabs = visibleTabs.filter((t) => t.categoryId === cat.id);
+    if (tabs.length > 0) {
+      container.appendChild(renderCategory(cat, tabs));
+    }
   });
-  const uncategorized = state.savedTabs.filter((t) => !catIds.has(t.categoryId));
+  const uncategorized = visibleTabs.filter((t) => !catIds.has(t.categoryId));
   if (uncategorized.length > 0) {
     container.appendChild(
       renderCategory({ id: "__uncategorized", name: "Uncategorized", emoji: "📂", color: "#6b7280" }, uncategorized)
@@ -73,12 +87,14 @@ function renderCategory(category, tabs) {
   div.className = "category";
   const isBuiltIn = category.id === "__uncategorized";
   const coldCount = tabs.filter(t => t.status === "cold").length;
+  const openCount = tabs.filter(t => t.status === "active" || t.status === "hot").length;
   div.innerHTML = `
     <div class="category-header" draggable="${isBuiltIn ? "false" : "true"}" data-category-id="${category.id}" style="--cat-color: ${category.color}">
       <span class="cat-emoji">${category.emoji || "📁"}</span>
       <span class="cat-name">${escapeHtml(category.name)}</span>
       <span class="cat-count">${tabs.length}</span>
       ${coldCount > 0 ? `<button class="cat-btn cat-open-all" data-id="${category.id}" title="Open all cold tabs (${coldCount})">▶ ${coldCount}</button>` : ""}
+      ${openCount > 0 ? `<button class="cat-btn cat-archive" data-id="${category.id}" title="Archive all open tabs (${openCount})">❄</button>` : ""}
       ${isBuiltIn ? "" : `
         <button class="cat-btn cat-edit" data-id="${category.id}" title="Edit Category">✎</button>
         <button class="cat-btn cat-delete" data-id="${category.id}" title="Delete Category">✕</button>
@@ -294,6 +310,20 @@ function bindEvents() {
       return;
     }
 
+    const archiveBtn = e.target.closest(".cat-archive");
+    if (archiveBtn) {
+      const categoryId = archiveBtn.dataset.id;
+      if (!confirm(`Archive all open tabs in this category?`)) return;
+      try {
+        await chrome.runtime.sendMessage({ action: "archiveCategory", categoryId });
+        await loadData();
+        render();
+      } catch (err) {
+        console.error("Archive failed:", err);
+      }
+      return;
+    }
+
     const editBtn = e.target.closest(".cat-edit");
     if (editBtn) {
       openCategoryModal(editBtn.dataset.id);
@@ -336,6 +366,23 @@ function bindEvents() {
     } catch (err) {
       console.error("Shelve failed:", err);
     }
+  });
+
+  $("save-all-btn").addEventListener("click", async () => {
+    if (!state.activeTab) return;
+    try {
+      const catId = state.saveCategoryId || null;
+      const res = await chrome.runtime.sendMessage({ action: "saveAllTabs", windowId: state.activeTab.windowId, categoryId: catId });
+      await loadData();
+      render();
+    } catch (err) {
+      console.error("Save all failed:", err);
+    }
+  });
+
+  $("search-input").addEventListener("input", () => {
+    state.searchQuery = $("search-input").value;
+    render();
   });
 
   $("save-category-select").addEventListener("change", () => {
