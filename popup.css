@@ -53,6 +53,15 @@ h1 {
   letter-spacing: -0.5px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+#import-file-input {
+  display: none;
+}
+
 .icon-btn {
   background: none;
   border: 1px solid var(--border);

@@ -351,6 +351,18 @@ async function handleMessage(message, sender) {
       return { success: true, archived: archivedCount };
     }
 
+    case "importData": {
+      const { data } = message;
+      if (!data || !Array.isArray(data.savedTabs) || !Array.isArray(data.categories)) {
+        throw new Error("Invalid import data format: expected savedTabs and categories arrays");
+      }
+      const sanitized = data.savedTabs.map(t => ({ ...t, status: "cold", activeTabId: null }));
+      await chrome.storage.local.set({ savedTabs: sanitized, categories: data.categories });
+      await updateBadge();
+      rebuildContextMenus();
+      return { success: true, tabsCount: sanitized.length, categoriesCount: data.categories.length };
+    }
+
     case "focusActiveTab": {
       const { savedTabId } = message;
       const tab = savedTabs.find(t => t.id === savedTabId);
@@ -622,6 +634,43 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.runtime.onStartup.addListener(() => rebuildContextMenus());
 chrome.runtime.onInstalled.addListener(() => rebuildContextMenus());
+
+// === Omnibox Search ===
+
+chrome.omnibox.onInputChanged.addListener((text, suggest) => {
+  if (!text.trim()) {
+    suggest([]);
+    return;
+  }
+  const q = text.toLowerCase();
+  getSavedTabs().then(savedTabs => {
+    const matches = savedTabs.filter(t =>
+      (t.title && t.title.toLowerCase().includes(q)) ||
+      (t.url && t.url.toLowerCase().includes(q))
+    ).slice(0, 5);
+    suggest(matches.map(t => ({
+      content: t.id,
+      description: `${t.title || "Untitled"} — ${t.url} [${t.status}]`
+    })));
+  });
+});
+
+chrome.omnibox.onInputEntered.addListener(async (content, disposition) => {
+  const savedTabs = await getSavedTabs();
+  const tab = savedTabs.find(t => t.id === content);
+  if (!tab) return;
+  try {
+    if (tab.status === "active") {
+      await handleMessage({ action: "focusActiveTab", savedTabId: content }, {});
+    } else if (tab.status === "hot") {
+      await handleMessage({ action: "unshelveTab", savedTabId: content }, {});
+    } else if (tab.status === "cold") {
+      await handleMessage({ action: "openColdTab", savedTabId: content }, {});
+    }
+  } catch (e) {
+    console.error("Omnibox action failed:", e);
+  }
+});
 
 // Tab updated handler: synchronizes active tab changes (title, URL, favicon) with saved metadata
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {

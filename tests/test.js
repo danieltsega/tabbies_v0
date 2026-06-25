@@ -890,6 +890,117 @@ const tests = [
       if (res.archived !== 0) throw new Error(`Expected 0 archived tabs, got ${res.archived}`);
       return true;
     }
+  },
+  // === Import / Export Tests ===
+  {
+    id: "import-data-replaces-existing",
+    name: "Import Data Replaces Existing Tabs and Categories",
+    desc: "Verifies importData replaces savedTabs and categories in storage",
+    fn: async (log) => {
+      const now = Date.now();
+      const importData = {
+        savedTabs: [
+          { id: "imported_1_" + now, categoryId: null, url: TEST_URL_A, title: "Imported A", favIconUrl: "", status: "cold", activeTabId: null, savedAt: now },
+          { id: "imported_2_" + now, categoryId: "imp-cat", url: TEST_URL_B, title: "Imported B", favIconUrl: "", status: "cold", activeTabId: null, savedAt: now }
+        ],
+        categories: [
+          { id: "imp-cat", name: "Imported Category", emoji: "📦", color: "#8b5cf6" }
+        ]
+      };
+      log("Sending importData...");
+      const res = await chrome.runtime.sendMessage({ action: "importData", data: importData });
+      log(`Import result: success=${res.success}, tabs=${res.tabsCount}, cats=${res.categoriesCount}`);
+      if (!res.success) throw new Error("importData failed: " + res.error);
+      if (res.tabsCount !== 2) throw new Error(`Expected 2 tabs, got ${res.tabsCount}`);
+      if (res.categoriesCount !== 1) throw new Error(`Expected 1 category, got ${res.categoriesCount}`);
+
+      const stored = await chrome.storage.local.get(["savedTabs", "categories"]);
+      if (stored.savedTabs.length !== 2) throw new Error(`Storage has ${stored.savedTabs.length} tabs, expected 2`);
+      if (stored.categories.length !== 1) throw new Error(`Storage has ${stored.categories.length} categories, expected 1`);
+      if (stored.savedTabs[0].id !== importData.savedTabs[0].id) throw new Error("Tab data mismatch");
+
+      for (const tab of stored.savedTabs) {
+        if (tab.activeTabId !== null) throw new Error("Imported tab has non-null activeTabId");
+        if (tab.status !== "cold") throw new Error("Imported tab status is not cold: " + tab.status);
+      }
+      log("All imported tabs are cold with null activeTabId");
+
+      await chrome.storage.local.set({ savedTabs: [], categories: [] });
+      return true;
+    }
+  },
+  {
+    id: "import-data-invalid",
+    name: "Import Invalid Data Throws Error",
+    desc: "Verifies importData rejects data without savedTabs or categories arrays",
+    fn: async (log) => {
+      try {
+        await chrome.runtime.sendMessage({ action: "importData", data: { savedTabs: "not-an-array" } });
+        throw new Error("Should have rejected invalid data");
+      } catch (e) {
+        if (e.message.includes("Invalid import data format")) {
+          log("Correctly rejected: " + e.message);
+          return true;
+        }
+        throw e;
+      }
+    }
+  },
+  {
+    id: "import-data-sanitizes-hot-tabs",
+    name: "Import Data Sanitizes Active/Hot Tabs to Cold",
+    desc: "Verifies that imported tabs with active/hot status are forced to cold",
+    fn: async (log) => {
+      const now = Date.now();
+      const importData = {
+        savedTabs: [
+          { id: "hot_import_" + now, categoryId: null, url: TEST_URL_A, title: "Was Hot", favIconUrl: "", status: "hot", activeTabId: 999, savedAt: now }
+        ],
+        categories: []
+      };
+      const res = await chrome.runtime.sendMessage({ action: "importData", data: importData });
+      if (!res.success) throw new Error("importData failed: " + res.error);
+
+      const stored = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab = stored.find(t => t.id === importData.savedTabs[0].id);
+      if (tab.status !== "cold") throw new Error(`Status is "${tab.status}", expected "cold"`);
+      if (tab.activeTabId !== null) throw new Error("activeTabId is not null");
+      log("Imported hot tab sanitized to cold with null activeTabId");
+
+      await chrome.storage.local.set({ savedTabs: [], categories: [] });
+      return true;
+    }
+  },
+  {
+    id: "save-duplicate-url-different-tab",
+    name: "Saving Same URL for Different Tab Creates Separate Entry",
+    desc: "Verifies that saving a URL already saved under a different tabId creates a new entry",
+    fn: async (log) => {
+      const tabA = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabA.id, categoryId: null });
+      const firstId = saveRes.tab.id;
+      log(`Saved first tab: ${firstId}, url: ${saveRes.tab.url}`);
+
+      const tabB = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveResB = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabB.id, categoryId: null });
+      const secondId = saveResB.tab.id;
+      log(`Saved second tab (same URL): ${secondId}, url: ${saveResB.tab.url}`);
+
+      if (firstId === secondId) throw new Error("Duplicate URL save returned same tab ID");
+      if (saveResB.tab.url !== saveRes.tab.url) throw new Error("URLs don't match");
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const entries = savedTabs.filter(t => t.url === TEST_URL_A);
+      log(`Entries for this URL: ${entries.length}`);
+
+      if (entries.length < 2) throw new Error(`Expected at least 2 entries, got ${entries.length}`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: firstId });
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: secondId });
+      await chrome.tabs.remove(tabA.id);
+      await chrome.tabs.remove(tabB.id);
+      return true;
+    }
   }
 ];
 

@@ -372,13 +372,65 @@ function bindEvents() {
     if (!state.activeTab) return;
     try {
       const catId = state.saveCategoryId || null;
-      const res = await chrome.runtime.sendMessage({ action: "saveAllTabs", windowId: state.activeTab.windowId, categoryId: catId });
+      await chrome.runtime.sendMessage({ action: "saveAllTabs", windowId: state.activeTab.windowId, categoryId: catId });
       await loadData();
       render();
     } catch (err) {
       console.error("Save all failed:", err);
     }
   });
+
+  $("export-btn").addEventListener("click", async () => {
+    try {
+      const res = await chrome.runtime.sendMessage({ action: "getAllData" });
+      const data = { version: 1, exportedAt: Date.now(), savedTabs: res.data.savedTabs, categories: res.data.categories };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tabbies-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  });
+
+  $("import-btn").addEventListener("click", () => {
+    $("import-file-input").click();
+  });
+
+  $("import-file-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.savedTabs) || !Array.isArray(data.categories)) {
+        throw new Error("Invalid format: expected savedTabs and categories arrays");
+      }
+      if (!confirm(`Import ${data.savedTabs.length} tabs and ${data.categories.length} categories? This will replace all existing data.`)) return;
+      await chrome.runtime.sendMessage({ action: "importData", data });
+      await loadData();
+      render();
+    } catch (err) {
+      alert("Import failed: " + err.message);
+    }
+    e.target.value = "";
+  });
+
+  function warnDuplicateUrl(url) {
+    if (!url) return true;
+    const savedForCurrentTab = state.activeTab ? state.savedTabs.find(t => t.activeTabId === state.activeTab.id) : null;
+    const dup = state.savedTabs.find(t =>
+      t.url === url &&
+      t.id !== (savedForCurrentTab ? savedForCurrentTab.id : null)
+    );
+    if (dup) {
+      return confirm(`"${dup.title}" is already saved with this URL. Save another copy?`);
+    }
+    return true;
+  }
 
   $("search-input").addEventListener("input", () => {
     state.searchQuery = $("search-input").value;

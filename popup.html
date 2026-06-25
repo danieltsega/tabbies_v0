@@ -11,7 +11,12 @@
     <header>
       <div class="header-top">
         <h1>Tabbies</h1>
-        <button id="add-category-btn" class="icon-btn" title="Add Category">+</button>
+        <div class="header-actions">
+          <button id="export-btn" class="icon-btn" title="Export data as JSON">↓</button>
+          <button id="import-btn" class="icon-btn" title="Import data from JSON">↑</button>
+          <button id="add-category-btn" class="icon-btn" title="Add Category">+</button>
+        </div>
+        <input type="file" id="import-file-input" accept=".json,application/json" />
       </div>
       <div class="action-bar">
         <select id="save-category-select" class="action-bar-select"></select>
