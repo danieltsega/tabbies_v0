@@ -1,6 +1,16 @@
 const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280"];
 const CAT_ICONS = ["📁", "💼", "🏠", "⭐", "❤️", "🎯", "📚", "🎮", "🎵", "✈️", "💡", "🛒"];
 
+const FAV_FALLBACK = () => {
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">',
+    '<rect width="16" height="16" rx="2" fill="rgba(79,70,229,0.06)"/>',
+    '<circle cx="8" cy="8" r="3" fill="#94a3b8" opacity="0.25"/>',
+    '</svg>'
+  ].join("");
+  return 'data:image/svg+xml;base64,' + btoa(svg);
+}();
+
 let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "" };
 let editingCategoryId = null;
 
@@ -108,9 +118,11 @@ function renderCategory(category, tabs) {
 function renderTabItem(tab) {
   const actions = getActions(tab);
   const statusLabels = { active: "Active", hot: "Shelved", cold: "Cold" };
+  const src = tab.favIconUrl ? escapeHtml(tab.favIconUrl) : FAV_FALLBACK;
+  const onerrorAttr = tab.favIconUrl ? ` onerror="this.onerror=null;this.src='${FAV_FALLBACK}'"` : "";
   return `
     <div class="tab-item" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
-      <img class="favicon" src="${escapeHtml(tab.favIconUrl || "")}" onerror="this.style.display='none'" />
+      <img class="favicon" src="${src}"${onerrorAttr} />
       <span class="tab-title" title="${escapeHtml(tab.title)}">${escapeHtml(tab.title)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
