@@ -277,7 +277,7 @@ main::-webkit-scrollbar-thumb:hover {
 .tab-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 4px;
   padding-left: 16px;
 }
 
