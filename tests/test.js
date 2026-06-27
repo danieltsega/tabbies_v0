@@ -924,8 +924,6 @@ const tests = [
         if (tab.status !== "cold") throw new Error("Imported tab status is not cold: " + tab.status);
       }
       log("All imported tabs are cold with null activeTabId");
-
-      await chrome.storage.local.set({ savedTabs: [], categories: [] });
       return true;
     }
   },
@@ -966,8 +964,6 @@ const tests = [
       if (tab.status !== "cold") throw new Error(`Status is "${tab.status}", expected "cold"`);
       if (tab.activeTabId !== null) throw new Error("activeTabId is not null");
       log("Imported hot tab sanitized to cold with null activeTabId");
-
-      await chrome.storage.local.set({ savedTabs: [], categories: [] });
       return true;
     }
   },
@@ -1037,6 +1033,10 @@ document.addEventListener("DOMContentLoaded", () => {
     logBox.textContent = "Starting test suite execution...\n";
     passedCount.textContent = "0";
     failedCount.textContent = "0";
+
+    // Snapshot user data before tests so we can restore after
+    const preTestSnapshot = await chrome.storage.local.get(["savedTabs", "categories"]);
+    appendLog("Pre-test storage snapshot saved.\n");
     
     let passed = 0;
     let failed = 0;
@@ -1053,32 +1053,38 @@ document.addEventListener("DOMContentLoaded", () => {
       badge.className = "test-status status-pending";
       badge.textContent = "Pending";
     });
-    
-    for (const test of tests) {
-      const badge = document.getElementById(`status-${test.id}`);
-      badge.className = "test-status status-running";
-      badge.textContent = "Running";
-      testLog(`\n[RUNNING] ${test.name}`);
-      
-      try {
-        const success = await test.fn(testLog);
-        if (success) {
-          badge.className = "test-status status-passed";
-          badge.textContent = "Passed";
-          testLog(`[PASSED] ${test.name}`);
-          passed++;
-          passedCount.textContent = passed;
-        } else {
-          throw new Error("Test returned false");
+
+    try {
+      for (const test of tests) {
+        const badge = document.getElementById(`status-${test.id}`);
+        badge.className = "test-status status-running";
+        badge.textContent = "Running";
+        testLog(`\n[RUNNING] ${test.name}`);
+        
+        try {
+          const success = await test.fn(testLog);
+          if (success) {
+            badge.className = "test-status status-passed";
+            badge.textContent = "Passed";
+            testLog(`[PASSED] ${test.name}`);
+            passed++;
+            passedCount.textContent = passed;
+          } else {
+            throw new Error("Test returned false");
+          }
+        } catch (e) {
+          badge.className = "test-status status-failed";
+          badge.textContent = "Failed";
+          testLog(`[FAILED] ${test.name}: ${e.message}`);
+          if (e.stack) testLog(e.stack);
+          failed++;
+          failedCount.textContent = failed;
         }
-      } catch (e) {
-        badge.className = "test-status status-failed";
-        badge.textContent = "Failed";
-        testLog(`[FAILED] ${test.name}: ${e.message}`);
-        if (e.stack) testLog(e.stack);
-        failed++;
-        failedCount.textContent = failed;
       }
+    } finally {
+      // Restore user data that tests may have clobbered
+      await chrome.storage.local.set(preTestSnapshot);
+      appendLog("Pre-test storage snapshot restored.\n");
     }
     
     testLog(`\nExecution complete. Passed: ${passed}, Failed: ${failed}`);
