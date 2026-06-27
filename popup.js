@@ -1,7 +1,7 @@
 const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280"];
 const CAT_ICONS = ["📁", "💼", "🏠", "⭐", "❤️", "🎯", "📚", "🎮", "🎵", "✈️", "💡", "🛒"];
 
-const FAV_FALLBACK = () => {
+const FAV_FALLBACK = (() => {
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">',
     '<rect width="16" height="16" rx="2" fill="rgba(79,70,229,0.06)"/>',
@@ -9,7 +9,7 @@ const FAV_FALLBACK = () => {
     '</svg>'
   ].join("");
   return 'data:image/svg+xml;base64,' + btoa(svg);
-}();
+})();
 
 let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "" };
 let editingCategoryId = null;
