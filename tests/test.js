@@ -997,6 +997,166 @@ const tests = [
       await chrome.tabs.remove(tabB.id);
       return true;
     }
+  },
+  {
+    id: "focus-active-tab",
+    name: "Focus Active Tab Brings Tab to Front",
+    desc: "Verifies focusActiveTab focuses the tab and its window",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      log(`Created tab: ${testTab.id}`);
+
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "focus-test" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab: ${savedTabId}`);
+
+      const focusRes = await chrome.runtime.sendMessage({ action: "focusActiveTab", savedTabId });
+      if (!focusRes.success) throw new Error("focusActiveTab failed: " + focusRes.error);
+      log("focusActiveTab returned success");
+
+      const tabInfo = await chrome.tabs.get(testTab.id);
+      log(`Tab active state after focus: ${tabInfo.active}`);
+      if (!tabInfo.active) throw new Error("Tab was not brought to focus");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
+  },
+  {
+    id: "focus-nonexistent-tab",
+    name: "Focus Non-Existent Tab Returns Error",
+    desc: "Verifies focusActiveTab throws for non-existent savedTabId",
+    fn: async (log) => {
+      try {
+        await chrome.runtime.sendMessage({ action: "focusActiveTab", savedTabId: "no-such-tab" });
+        throw new Error("Should have thrown for non-existent tab");
+      } catch (e) {
+        if (e.message.includes("Saved tab not found")) {
+          log("Correctly rejected: " + e.message);
+          return true;
+        }
+        throw e;
+      }
+    }
+  },
+  {
+    id: "delete-category-with-tabs",
+    name: "Delete Category Leaves Tabs Uncategorized",
+    desc: "Verifies that deleting a category does not remove tabs in it",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "ToDelete", emoji: "🗑️", color: "#ef4444" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: catId });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab in category: ${savedTabId}`);
+
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      log("Deleted category");
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab = savedTabs.find(t => t.id === savedTabId);
+      if (!tab) throw new Error("Tab was removed along with the category");
+      log(`Tab still exists, categoryId: "${tab.categoryId}"`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
+  },
+  {
+    id: "remove-hot-tab-closes-chrome",
+    name: "Remove Hot Tab Also Closes Chrome Tab",
+    desc: "Verifies that removing a hot (shelved) tab closes its underlying Chrome tab",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      log(`Created tab: ${testTab.id}`);
+
+      const shelveRes = await chrome.runtime.sendMessage({ action: "shelveActiveTab", tabId: testTab.id, categoryId: "remove-hot" });
+      const savedTabId = shelveRes.tab.id;
+      log(`Shelved tab: ${savedTabId}`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      log("Removed saved tab");
+
+      try {
+        await chrome.tabs.get(testTab.id);
+        throw new Error("Chrome tab should have been removed");
+      } catch (e) {
+        if (e.message.includes("No tab with id")) {
+          log("Chrome tab was correctly removed");
+        } else {
+          throw e;
+        }
+      }
+      return true;
+    }
+  },
+  {
+    id: "shelve-saved-tab",
+    name: "Shelve Already Saved Active Tab",
+    desc: "Verifies shelveSavedTab transitions a saved active tab to hot in storage window",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "shelve-saved" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved active tab: ${savedTabId}`);
+
+      const shelveRes = await chrome.runtime.sendMessage({ action: "shelveSavedTab", savedTabId });
+      if (!shelveRes.success) throw new Error("shelveSavedTab failed: " + shelveRes.error);
+      log(`shelveSavedTab returned status: ${shelveRes.tab.status}`);
+
+      if (shelveRes.tab.status !== "hot") throw new Error(`Status is "${shelveRes.tab.status}", expected "hot"`);
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab = savedTabs.find(t => t.id === savedTabId);
+      if (tab.status !== "hot") throw new Error("Tab status is not 'hot' in storage");
+      log("Tab transitioned to hot correctly");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      return true;
+    }
+  },
+  {
+    id: "getAllData-empty",
+    name: "Get All Data Returns Empty Arrays When No Data",
+    desc: "Verifies getAllData returns empty savedTabs and categories when nothing is stored",
+    fn: async (log) => {
+      await chrome.storage.local.set({ savedTabs: [], categories: [] });
+      log("Cleared storage");
+
+      const res = await chrome.runtime.sendMessage({ action: "getAllData" });
+      if (!res.success) throw new Error("getAllData failed: " + res.error);
+      log(`Data received: ${res.data.savedTabs.length} tabs, ${res.data.categories.length} categories`);
+
+      if (!Array.isArray(res.data.savedTabs)) throw new Error("savedTabs is not an array");
+      if (!Array.isArray(res.data.categories)) throw new Error("categories is not an array");
+      if (res.data.savedTabs.length !== 0) throw new Error(`Expected 0 tabs, got ${res.data.savedTabs.length}`);
+      if (res.data.categories.length !== 0) throw new Error(`Expected 0 categories, got ${res.data.categories.length}`);
+      log("Both arrays are empty as expected");
+
+      return true;
+    }
+  },
+  {
+    id: "create-category-defaults",
+    name: "Create Category Uses Default Emoji and Color",
+    desc: "Verifies creating a category with only a name gets default emoji and color",
+    fn: async (log) => {
+      const res = await chrome.runtime.sendMessage({ action: "createCategory", name: "Defaults Only" });
+      if (!res.success) throw new Error("createCategory failed: " + res.error);
+      log(`Category created: ${res.category.id}, emoji: "${res.category.emoji}", color: "${res.category.color}"`);
+
+      if (res.category.emoji !== "📁") throw new Error(`Expected default emoji "📁", got "${res.category.emoji}"`);
+      if (res.category.color !== "#6b7280") throw new Error(`Expected default color "#6b7280", got "${res.category.color}"`);
+      log("Default emoji and color applied");
+
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: res.category.id });
+      return true;
+    }
   }
 ];
 
