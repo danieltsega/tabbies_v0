@@ -204,6 +204,44 @@ main::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Undo toast */
+.undo-toast {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1e293b;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  transition: opacity 0.2s;
+}
+
+.undo-toast.hidden {
+  display: none;
+}
+
+.undo-message {
+  flex: 1;
+  color: var(--text);
+}
+
+.undo-btn {
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.undo-btn:hover {
+  background: rgba(79, 70, 229, 0.1);
+}
+
 /* Category */
 .category {
   margin-bottom: 4px;

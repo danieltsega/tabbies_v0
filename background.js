@@ -426,6 +426,19 @@ async function handleMessage(message, sender) {
       return { success: true, removed };
     }
 
+    case "restoreSavedTabs": {
+      const { savedTabs: restoredTabs, categories: restoredCategories } = message;
+      if (restoredTabs && Array.isArray(restoredTabs)) {
+        await chrome.storage.local.set({ savedTabs: restoredTabs });
+      }
+      if (restoredCategories && Array.isArray(restoredCategories)) {
+        await chrome.storage.local.set({ categories: restoredCategories });
+      }
+      await updateBadge();
+      rebuildContextMenus();
+      return { success: true, restored: (restoredTabs || []).length };
+    }
+
     case "getAllData": {
       const categories = await getCategories();
       return { success: true, data: { savedTabs, categories } };

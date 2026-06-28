@@ -1228,6 +1228,51 @@ const tests = [
       await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
       return true;
     }
+  },
+  {
+    id: "restore-saved-tabs",
+    name: "Restore Saved Tabs Reverts Removed Tabs",
+    desc: "Verifies restoreSavedTabs restores a prior snapshot of savedTabs",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "undo-test" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab: ${savedTabId}`);
+
+      let savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const snapshot = JSON.parse(JSON.stringify(savedTabs));
+      log(`Snapshot has ${snapshot.length} tabs`);
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      log(`After remove: ${savedTabs.length} tabs`);
+
+      const res = await chrome.runtime.sendMessage({ action: "restoreSavedTabs", savedTabs: snapshot, categories: [] });
+      if (!res.success) throw new Error("restoreSavedTabs failed: " + res.error);
+      savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      log(`After restore: ${savedTabs.length} tabs`);
+
+      const restored = savedTabs.find(t => t.id === savedTabId);
+      if (!restored) throw new Error("Tab was not restored");
+      if (restored.url !== TEST_URL_A) throw new Error("Restored tab has wrong URL");
+      log("Tab restored successfully");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
+  {
+    id: "restore-saved-tabs-empty",
+    name: "Restore Empty Array Clears All Tabs",
+    desc: "Verifies restoreSavedTabs with empty array clears storage",
+    fn: async (log) => {
+      await chrome.runtime.sendMessage({ action: "restoreSavedTabs", savedTabs: [], categories: [] });
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      if (savedTabs.length !== 0) throw new Error(`Expected 0 tabs, got ${savedTabs.length}`);
+      log("Storage cleared via restoreSavedTabs with empty array");
+      return true;
+    }
   }
 ];
 

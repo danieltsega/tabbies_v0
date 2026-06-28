@@ -13,6 +13,26 @@ const FAV_FALLBACK = (() => {
 
 let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {}, sortBy: "newest" };
 let editingCategoryId = null;
+let pendingUndo = null;
+let undoTimeout = null;
+
+function pushUndo(savedTabs, categories, message) {
+  if (undoTimeout) clearTimeout(undoTimeout);
+  pendingUndo = { savedTabs: JSON.parse(JSON.stringify(savedTabs)), categories: JSON.parse(JSON.stringify(categories)), message };
+  showUndoToast(message);
+}
+
+function clearUndo() {
+  if (undoTimeout) clearTimeout(undoTimeout);
+  pendingUndo = null;
+  $("undo-toast")?.classList.add("hidden");
+}
+
+function showUndoToast(msg) {
+  $("undo-message").textContent = msg;
+  $("undo-toast").classList.remove("hidden");
+  undoTimeout = setTimeout(clearUndo, 5000);
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -340,6 +360,9 @@ function bindEvents() {
       const action = btn.dataset.action;
       const savedTabId = btn.dataset.id;
       if (action === "removeSavedTab" && !confirm("Remove this saved tab?")) return;
+      if (action === "removeSavedTab") {
+        pushUndo(state.savedTabs, state.categories, "Tab removed");
+      }
       try {
         await chrome.runtime.sendMessage({ action, savedTabId });
         await loadData();
@@ -366,6 +389,7 @@ function bindEvents() {
     if (archiveBtn) {
       const categoryId = archiveBtn.dataset.id;
       if (!confirm(`Archive all open tabs in this category?`)) return;
+      pushUndo(state.savedTabs, state.categories, "Tabs archived");
       try {
         await chrome.runtime.sendMessage({ action: "archiveCategory", categoryId });
         await loadData();
@@ -443,7 +467,8 @@ function bindEvents() {
 
   $("clear-all-btn").addEventListener("click", async () => {
     if (state.savedTabs.length === 0) return;
-    if (!confirm(`Remove all ${state.savedTabs.length} saved tabs? This cannot be undone.`)) return;
+    if (!confirm(`Remove all ${state.savedTabs.length} saved tabs?`)) return;
+    pushUndo(state.savedTabs, state.categories, "All tabs removed");
     try {
       await chrome.runtime.sendMessage({ action: "clearAllTabs" });
       await loadData();
@@ -547,6 +572,18 @@ function bindEvents() {
       render();
     } catch (err) {
       console.error("Category save failed:", err);
+    }
+  });
+
+  $("undo-btn").addEventListener("click", async () => {
+    if (!pendingUndo) return;
+    clearUndo();
+    try {
+      await chrome.runtime.sendMessage({ action: "restoreSavedTabs", savedTabs: pendingUndo.savedTabs, categories: pendingUndo.categories });
+      await loadData();
+      render();
+    } catch (err) {
+      console.error("Undo failed:", err);
     }
   });
 
