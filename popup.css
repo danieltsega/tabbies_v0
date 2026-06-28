@@ -310,6 +310,18 @@ main::-webkit-scrollbar-thumb:hover {
   padding-left: 16px;
 }
 
+.tab-list.collapsed {
+  display: none;
+}
+
+.cat-chevron {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  line-height: 1;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
 .tab-item {
   display: flex;
   align-items: center;

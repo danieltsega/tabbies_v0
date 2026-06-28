@@ -11,7 +11,7 @@ const FAV_FALLBACK = (() => {
   return 'data:image/svg+xml;base64,' + btoa(svg);
 })();
 
-let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all" };
+let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {} };
 let editingCategoryId = null;
 
 const $ = (id) => document.getElementById(id);
@@ -117,8 +117,10 @@ function renderCategory(category, tabs) {
   const isBuiltIn = category.id === "__uncategorized";
   const coldCount = tabs.filter(t => t.status === "cold").length;
   const openCount = tabs.filter(t => t.status === "active" || t.status === "hot").length;
+  const isCollapsed = state.collapsed[category.id];
   div.innerHTML = `
     <div class="category-header" draggable="${isBuiltIn ? "false" : "true"}" data-category-id="${category.id}" style="--cat-color: ${category.color}">
+      <span class="cat-chevron">${isCollapsed ? "▶" : "▼"}</span>
       <span class="cat-emoji">${category.emoji || "📁"}</span>
       <span class="cat-name">${escapeHtml(category.name)}</span>
       <span class="cat-count">${tabs.length}</span>
@@ -129,7 +131,7 @@ function renderCategory(category, tabs) {
         <button class="cat-btn cat-delete" data-id="${category.id}" title="Delete Category">✕</button>
       `}
     </div>
-    <div class="tab-list" data-category-id="${category.id}">${tabs.map((t) => renderTabItem(t)).join("")}</div>
+    <div class="tab-list${isCollapsed ? " collapsed" : ""}" data-category-id="${category.id}">${tabs.map((t) => renderTabItem(t)).join("")}</div>
   `;
   return div;
 }
@@ -372,6 +374,15 @@ function bindEvents() {
         }
       }
       return;
+    }
+
+    const catHeader = e.target.closest(".category-header");
+    if (catHeader) {
+      const catId = catHeader.dataset.categoryId;
+      if (catId) {
+        state.collapsed[catId] = !state.collapsed[catId];
+        render();
+      }
     }
   });
 
