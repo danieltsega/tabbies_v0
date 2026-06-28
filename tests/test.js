@@ -1157,6 +1157,77 @@ const tests = [
       await chrome.runtime.sendMessage({ action: "deleteCategory", id: res.category.id });
       return true;
     }
+  },
+  {
+    id: "clear-all-tabs-empty",
+    name: "Clear All Tabs With No Tabs Returns Zero",
+    desc: "Verifies clearAllTabs returns 0 when there are no saved tabs",
+    fn: async (log) => {
+      await chrome.storage.local.set({ savedTabs: [] });
+      log("Cleared storage");
+
+      const res = await chrome.runtime.sendMessage({ action: "clearAllTabs" });
+      if (!res.success) throw new Error("clearAllTabs failed: " + res.error);
+      log(`Removed: ${res.removed}`);
+
+      if (res.removed !== 0) throw new Error(`Expected 0 removed, got ${res.removed}`);
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      if (savedTabs.length !== 0) throw new Error("Storage still has tabs");
+      log("No tabs to remove, returned 0");
+      return true;
+    }
+  },
+  {
+    id: "clear-all-tabs-removes-active",
+    name: "Clear All Tabs Removes Active and Cold Tabs",
+    desc: "Verifies clearAllTabs removes all tabs regardless of status",
+    fn: async (log) => {
+      const tab1 = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const tab2 = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+
+      await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab1.id, categoryId: "clear-test" });
+      await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab2.id, categoryId: "clear-test" });
+      log("Saved 2 active tabs");
+
+      let savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      log(`Tabs before clear: ${savedTabs.length}`);
+
+      const res = await chrome.runtime.sendMessage({ action: "clearAllTabs" });
+      if (!res.success) throw new Error("clearAllTabs failed: " + res.error);
+      if (res.removed < 2) throw new Error(`Expected at least 2 removed, got ${res.removed}`);
+
+      savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      if (savedTabs.length !== 0) throw new Error(`Storage still has ${savedTabs.length} tabs`);
+      log("All tabs removed successfully");
+
+      await chrome.tabs.remove(tab1.id);
+      await chrome.tabs.remove(tab2.id);
+      return true;
+    }
+  },
+  {
+    id: "clear-all-tabs-preserves-categories",
+    name: "Clear All Tabs Preserves Categories",
+    desc: "Verifies clearAllTabs does not delete categories",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "Preserved", emoji: "✅", color: "#22c55e" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      await chrome.runtime.sendMessage({ action: "clearAllTabs" });
+      log("Cleared all tabs");
+
+      const cats = (await chrome.runtime.sendMessage({ action: "getAllData" })).data.categories;
+      log(`Categories after clear: ${cats.length}`);
+
+      const preserved = cats.find(c => c.id === catId);
+      if (!preserved) throw new Error("Category was deleted along with tabs");
+      log("Category preserved");
+
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
   }
 ];
 
