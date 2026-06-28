@@ -551,7 +551,28 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeCategoryModal();
+    if (e.key === "Escape") { closeCategoryModal(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const items = [...document.querySelectorAll(".tab-item")];
+      if (items.length === 0) return;
+      e.preventDefault();
+      let idx = items.findIndex(el => el.classList.contains("selected"));
+      if (idx === -1) idx = e.key === "ArrowDown" ? -1 : 0;
+      idx = e.key === "ArrowDown"
+        ? Math.min(idx + 1, items.length - 1)
+        : Math.max(idx - 1, 0);
+      document.querySelectorAll(".tab-item.selected").forEach(el => el.classList.remove("selected"));
+      items[idx].classList.add("selected");
+      items[idx].scrollIntoView({ block: "nearest" });
+      return;
+    }
+    if (e.key === "Enter") {
+      const selected = document.querySelector(".tab-item.selected");
+      if (!selected) return;
+      e.preventDefault();
+      const btn = selected.querySelector(".act-focusActiveTab, .act-openColdTab, .act-unshelveTab");
+      if (btn) btn.click();
+    }
   });
 }
 
