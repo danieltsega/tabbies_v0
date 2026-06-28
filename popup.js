@@ -11,7 +11,7 @@ const FAV_FALLBACK = (() => {
   return 'data:image/svg+xml;base64,' + btoa(svg);
 })();
 
-let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "" };
+let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all" };
 let editingCategoryId = null;
 
 const $ = (id) => document.getElementById(id);
@@ -58,16 +58,29 @@ function renderActionBar() {
 }
 
 function getFilteredTabs() {
-  if (!state.searchQuery) return state.savedTabs;
-  const q = state.searchQuery.toLowerCase();
-  return state.savedTabs.filter(t =>
-    (t.title && t.title.toLowerCase().includes(q)) ||
-    (t.url && t.url.toLowerCase().includes(q))
-  );
+  let tabs = state.savedTabs;
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase();
+    tabs = tabs.filter(t =>
+      (t.title && t.title.toLowerCase().includes(q)) ||
+      (t.url && t.url.toLowerCase().includes(q))
+    );
+  }
+  if (state.statusFilter !== "all") {
+    tabs = tabs.filter(t => t.status === state.statusFilter);
+  }
+  return tabs;
+}
+
+function renderFilterBar() {
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.filter === state.statusFilter);
+  });
 }
 
 function render() {
   renderActionBar();
+  renderFilterBar();
   const container = $("tab-list");
   container.innerHTML = "";
   const visibleTabs = getFilteredTabs();
@@ -464,6 +477,13 @@ function bindEvents() {
 
   $("search-input").addEventListener("input", () => {
     state.searchQuery = $("search-input").value;
+    render();
+  });
+
+  document.querySelector(".filter-bar")?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".filter-btn");
+    if (!btn) return;
+    state.statusFilter = btn.dataset.filter;
     render();
   });
 

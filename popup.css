@@ -443,6 +443,37 @@ main::-webkit-scrollbar-thumb:hover {
   border-color: rgba(239, 68, 68, 0.3);
 }
 
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.filter-btn {
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.filter-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 /* Search bar */
 .search-bar {
   margin-top: 8px;
