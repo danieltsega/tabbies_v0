@@ -486,6 +486,35 @@ main::-webkit-scrollbar-thumb:hover {
   border-color: var(--accent);
 }
 
+/* Sort bar */
+.sort-bar {
+  margin-top: 6px;
+}
+
+.sort-select {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.sort-select:hover,
+.sort-select:focus {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.sort-select option {
+  background: #1e293b;
+  color: var(--text);
+}
+
 /* Search bar */
 .search-bar {
   margin-top: 8px;

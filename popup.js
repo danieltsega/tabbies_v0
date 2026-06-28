@@ -11,7 +11,7 @@ const FAV_FALLBACK = (() => {
   return 'data:image/svg+xml;base64,' + btoa(svg);
 })();
 
-let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {} };
+let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {}, sortBy: "newest" };
 let editingCategoryId = null;
 
 const $ = (id) => document.getElementById(id);
@@ -72,18 +72,37 @@ function getFilteredTabs() {
   return tabs;
 }
 
+function getSortedTabs(tabs) {
+  const sorted = [...tabs];
+  sorted.sort((a, b) => {
+    switch (state.sortBy) {
+      case "oldest": return (a.savedAt || 0) - (b.savedAt || 0);
+      case "title-asc": return (a.title || "").localeCompare(b.title || "");
+      case "title-desc": return (b.title || "").localeCompare(a.title || "");
+      default: return (b.savedAt || 0) - (a.savedAt || 0); // newest
+    }
+  });
+  return sorted;
+}
+
 function renderFilterBar() {
   document.querySelectorAll(".filter-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.filter === state.statusFilter);
   });
 }
 
+function renderSortBar() {
+  const sel = $("sort-select");
+  if (sel) sel.value = state.sortBy;
+}
+
 function render() {
   renderActionBar();
   renderFilterBar();
+  renderSortBar();
   const container = $("tab-list");
   container.innerHTML = "";
-  const visibleTabs = getFilteredTabs();
+  const visibleTabs = getSortedTabs(getFilteredTabs());
 
   const footer = $("footer");
   if (footer) {
@@ -500,6 +519,11 @@ function bindEvents() {
 
   $("save-category-select").addEventListener("change", () => {
     state.saveCategoryId = $("save-category-select").value || null;
+  });
+
+  $("sort-select").addEventListener("change", () => {
+    state.sortBy = $("sort-select").value;
+    render();
   });
 
   $("add-category-btn").addEventListener("click", () => openCategoryModal(null));
