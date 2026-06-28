@@ -414,6 +414,18 @@ async function handleMessage(message, sender) {
       return { success: true, tab: savedTabs[tabIndex] };
     }
 
+    case "clearAllTabs": {
+      for (const tab of savedTabs) {
+        if (tab.status === "hot" && tab.activeTabId) {
+          try { await chrome.tabs.remove(tab.activeTabId); } catch (e) {}
+        }
+      }
+      const removed = savedTabs.length;
+      await chrome.storage.local.set({ savedTabs: [] });
+      await updateBadge();
+      return { success: true, removed };
+    }
+
     case "getAllData": {
       const categories = await getCategories();
       return { success: true, data: { savedTabs, categories } };

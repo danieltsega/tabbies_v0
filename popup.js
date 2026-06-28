@@ -71,6 +71,12 @@ function render() {
   const container = $("tab-list");
   container.innerHTML = "";
   const visibleTabs = getFilteredTabs();
+
+  const footer = $("footer");
+  if (footer) {
+    footer.style.display = state.savedTabs.length > 0 ? "" : "none";
+  }
+
   if (visibleTabs.length === 0) {
     container.innerHTML = state.searchQuery
       ? `<div class="empty-state">No tabs matching "${escapeHtml(state.searchQuery)}"</div>`
@@ -389,6 +395,18 @@ function bindEvents() {
       render();
     } catch (err) {
       console.error("Save all failed:", err);
+    }
+  });
+
+  $("clear-all-btn").addEventListener("click", async () => {
+    if (state.savedTabs.length === 0) return;
+    if (!confirm(`Remove all ${state.savedTabs.length} saved tabs? This cannot be undone.`)) return;
+    try {
+      await chrome.runtime.sendMessage({ action: "clearAllTabs" });
+      await loadData();
+      render();
+    } catch (err) {
+      console.error("Clear all failed:", err);
     }
   });
 
