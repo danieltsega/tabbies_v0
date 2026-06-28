@@ -187,9 +187,10 @@ main::-webkit-scrollbar-thumb:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 8px 10px 8px 7px;
   cursor: default;
   border-radius: 8px;
+  border-left: 3px solid var(--cat-color);
   transition: background 0.15s;
 }
 
