@@ -1318,6 +1318,58 @@ const tests = [
       return true;
     }
   },
+  // === Recently Saved Indicator Tests ===
+  {
+    id: "recently-saved-tab",
+    name: "Recently Saved Tab Has Recent savedAt",
+    desc: "Verifies a saved tab gets a recent savedAt timestamp",
+    fn: async (log) => {
+      const now = Date.now();
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "recent-test" });
+      log(`savedAt: ${saveRes.tab.savedAt}, now: ${now}`);
+      if (!saveRes.tab.savedAt) throw new Error("savedAt is missing");
+      if (saveRes.tab.savedAt < now) throw new Error("savedAt is in the past");
+      if (saveRes.tab.savedAt > now + 5000) throw new Error("savedAt is too far in the future");
+      log("savedAt is a recent timestamp");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
+  {
+    id: "old-tab-no-recent-flag",
+    name: "Older Tab savedAt Is Distant Past",
+    desc: "Verifies a tab saved long ago has an old savedAt",
+    fn: async (log) => {
+      const longAgo = Date.now() - 600000; // 10 minutes ago
+      const oldTab = {
+        id: "old_recent_test_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+        categoryId: null,
+        url: TEST_URL_B,
+        title: "Old Tab",
+        favIconUrl: "",
+        status: "cold",
+        activeTabId: null,
+        savedAt: longAgo
+      };
+      let savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      savedTabs.push(oldTab);
+      await chrome.storage.local.set({ savedTabs });
+      log(`Injected old tab with savedAt: ${oldTab.savedAt} (${longAgo})`);
+
+      const stored = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab = stored.find(t => t.id === oldTab.id);
+      if (!tab) throw new Error("Old tab not found in storage");
+      if (tab.savedAt !== longAgo) throw new Error(`savedAt changed from ${longAgo} to ${tab.savedAt}`);
+      log("Old tab retains original savedAt");
+
+      const cleaned = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      await chrome.storage.local.set({ savedTabs: cleaned.filter(t => t.id !== oldTab.id) });
+      return true;
+    }
+  },
   {
     id: "move-tab-to-bottom",
     name: "Move Tab to Bottom of Category",

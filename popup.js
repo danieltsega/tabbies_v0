@@ -186,8 +186,10 @@ function renderTabItem(tab) {
   const statusLabels = { active: "Active", hot: "Shelved", cold: "Cold" };
   const src = tab.favIconUrl ? escapeHtml(tab.favIconUrl) : FAV_FALLBACK;
   const onerrorAttr = tab.favIconUrl ? ` onerror="this.onerror=null;this.src='${FAV_FALLBACK}'"` : "";
+  const isRecent = tab.savedAt && Date.now() - tab.savedAt < 300000;
   return `
-    <div class="tab-item" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
+    <div class="tab-item${isRecent ? " tab-recent" : ""}" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
+      ${isRecent ? '<span class="recent-badge">NEW</span>' : ""}
       <img class="favicon" src="${src}"${onerrorAttr} />
       <span class="tab-title" title="${escapeHtml(tab.title)}">${escapeHtml(tab.title)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>

@@ -387,6 +387,21 @@ main::-webkit-scrollbar-thumb:hover {
   background: var(--bg-card);
 }
 
+.tab-item.tab-recent {
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+.recent-badge {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
 .tab-item.selected {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
