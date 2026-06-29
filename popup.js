@@ -551,6 +551,16 @@ function bindEvents() {
     render();
   });
 
+  $("toggle-all-btn").addEventListener("click", () => {
+    const catIds = state.categories.map(c => c.id);
+    if (state.categories.some(c => state.collapsed[c.id])) {
+      catIds.forEach(id => delete state.collapsed[id]);
+    } else {
+      catIds.forEach(id => state.collapsed[id] = true);
+    }
+    render();
+  });
+
   $("add-category-btn").addEventListener("click", () => openCategoryModal(null));
 
   $("modal-cancel").addEventListener("click", closeCategoryModal);
