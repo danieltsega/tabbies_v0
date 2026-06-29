@@ -200,6 +200,7 @@ function renderTabItem(tab) {
       <span class="tab-time">${relativeTime(tab.savedAt)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
+        <button class="act-btn act-copy-url" data-action="copyTabUrl" data-url="${escapeHtml(tab.url)}" data-id="${escapeHtml(tab.id)}" title="Copy URL">📋</button>
         <button class="act-btn act-move-top" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}" title="Move to top">⤒</button>
         <button class="act-btn act-move-bot" data-action="moveTabToBottom" data-id="${escapeHtml(tab.id)}" title="Move to bottom">⤓</button>
         ${state.categories.length > 0 ? categorySelectHTML(tab) : ""}
@@ -379,6 +380,21 @@ function bindEvents() {
       if (action === "removeSavedTab") {
         pushUndo(state.savedTabs, state.categories, "Tab removed");
       }
+      if (action === "copyTabUrl") {
+        e.preventDefault();
+        const url = btn.dataset.url;
+        if (url) {
+          try {
+            await navigator.clipboard.writeText(url);
+            btn.textContent = "✓";
+            setTimeout(() => { btn.textContent = "📋"; }, 1500);
+          } catch (err) {
+            console.error("Copy failed:", err);
+          }
+        }
+        return;
+      }
+
       if (action === "moveTabToTop" || action === "moveTabToBottom") {
         const tab = state.savedTabs.find(t => t.id === savedTabId);
         if (tab) {
