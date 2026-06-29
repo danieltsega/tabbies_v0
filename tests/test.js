@@ -1273,6 +1273,94 @@ const tests = [
       log("Storage cleared via restoreSavedTabs with empty array");
       return true;
     }
+  },
+  // === Move to Top / Bottom Tests ===
+  {
+    id: "move-tab-to-top",
+    name: "Move Tab to Top of Category",
+    desc: "Verifies moving a tab to the top of its category via moveTab with correct index",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "TopTest", emoji: "⬆️", color: "#22c55e" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const tabInfos = [];
+      for (let i = 1; i <= 3; i++) {
+        const t = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+        const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: t.id, categoryId: catId });
+        tabInfos.push(saveRes.tab);
+      }
+      log(`Created 3 tabs, order: ${tabInfos.map(t => t.id).join(", ")}`);
+
+      // Move the last tab to the top: find first tab's global index
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const catTabs = savedTabs.filter(t => t.categoryId === catId);
+      const firstGlobalIdx = savedTabs.indexOf(catTabs[0]);
+      log(`First tab in category global index: ${firstGlobalIdx}`);
+
+      const moveRes = await chrome.runtime.sendMessage({
+        action: "moveTab",
+        savedTabId: tabInfos[2].id,
+        targetIndex: firstGlobalIdx
+      });
+      if (!moveRes.success) throw new Error("moveTab to top failed: " + moveRes.error);
+
+      const savedTabsAfter = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const catTabsAfter = savedTabsAfter.filter(t => t.categoryId === catId);
+      log(`Order after move to top: ${catTabsAfter.map(t => t.id).join(", ")}`);
+
+      if (catTabsAfter[0].id !== tabInfos[2].id) throw new Error(`Expected first to be ${tabInfos[2].id}, got ${catTabsAfter[0].id}`);
+
+      for (const tab of tabInfos) {
+        await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: tab.id });
+      }
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
+  {
+    id: "move-tab-to-bottom",
+    name: "Move Tab to Bottom of Category",
+    desc: "Verifies moving a tab to the bottom of its category via moveTab with correct index",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "BotTest", emoji: "⬇️", color: "#3b82f6" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const tabInfos = [];
+      for (let i = 1; i <= 3; i++) {
+        const t = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+        const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: t.id, categoryId: catId });
+        tabInfos.push(saveRes.tab);
+      }
+      log(`Created 3 tabs, order: ${tabInfos.map(t => t.id).join(", ")}`);
+
+      // Move the first tab to the bottom: find last tab's global index + 1
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const catTabs = savedTabs.filter(t => t.categoryId === catId);
+      const lastGlobalIdx = savedTabs.indexOf(catTabs[catTabs.length - 1]);
+      log(`Last tab in category global index: ${lastGlobalIdx}`);
+
+      const moveRes = await chrome.runtime.sendMessage({
+        action: "moveTab",
+        savedTabId: tabInfos[0].id,
+        targetIndex: lastGlobalIdx + 1
+      });
+      if (!moveRes.success) throw new Error("moveTab to bottom failed: " + moveRes.error);
+
+      const savedTabsAfter = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const catTabsAfter = savedTabsAfter.filter(t => t.categoryId === catId);
+      log(`Order after move to bottom: ${catTabsAfter.map(t => t.id).join(", ")}`);
+
+      const lastIdx = catTabsAfter.length - 1;
+      if (catTabsAfter[lastIdx].id !== tabInfos[0].id) throw new Error(`Expected last to be ${tabInfos[0].id}, got ${catTabsAfter[lastIdx].id}`);
+
+      for (const tab of tabInfos) {
+        await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: tab.id });
+      }
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
   }
 ];
 

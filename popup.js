@@ -192,6 +192,8 @@ function renderTabItem(tab) {
       <span class="tab-title" title="${escapeHtml(tab.title)}">${escapeHtml(tab.title)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
+        <button class="act-btn act-move-top" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}" title="Move to top">⤒</button>
+        <button class="act-btn act-move-bot" data-action="moveTabToBottom" data-id="${escapeHtml(tab.id)}" title="Move to bottom">⤓</button>
         ${state.categories.length > 0 ? categorySelectHTML(tab) : ""}
         ${actions.map((a) => `<button class="act-btn act-${a.action}" data-action="${a.action}" data-id="${escapeHtml(tab.id)}">${a.label}</button>`).join("")}
       </div>
@@ -368,6 +370,26 @@ function bindEvents() {
       if (action === "removeSavedTab" && !confirm("Remove this saved tab?")) return;
       if (action === "removeSavedTab") {
         pushUndo(state.savedTabs, state.categories, "Tab removed");
+      }
+      if (action === "moveTabToTop" || action === "moveTabToBottom") {
+        const tab = state.savedTabs.find(t => t.id === savedTabId);
+        if (tab) {
+          const catTabs = state.savedTabs.filter(t => (t.categoryId || null) === (tab.categoryId || null));
+          if (catTabs.length > 1) {
+            const isTop = action === "moveTabToTop";
+            const targetTab = catTabs[isTop ? 0 : catTabs.length - 1];
+            const targetGlobalIdx = state.savedTabs.indexOf(targetTab);
+            const targetIdx = isTop ? targetGlobalIdx : targetGlobalIdx + 1;
+            try {
+              await chrome.runtime.sendMessage({ action: "moveTab", savedTabId, targetIndex: targetIdx });
+              await loadData();
+              render();
+            } catch (err) {
+              console.error("Move failed:", err);
+            }
+          }
+        }
+        return;
       }
       try {
         await chrome.runtime.sendMessage({ action, savedTabId });
