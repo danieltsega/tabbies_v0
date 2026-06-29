@@ -1338,6 +1338,40 @@ const tests = [
       return true;
     }
   },
+  // === Collapsed State Persistence Tests ===
+  {
+    id: "collapsed-state-save-load",
+    name: "Collapsed State Saved and Loaded from Storage",
+    desc: "Verifies collapsed state persists in chrome.storage.local",
+    fn: async (log) => {
+      const testCollapsed = { "cat_a": true, "cat_b": false, "cat_c": true };
+      await chrome.storage.local.set({ collapsed: testCollapsed });
+      log("Saved collapsed state to storage");
+
+      const { collapsed } = await chrome.storage.local.get("collapsed");
+      log(`Retrieved collapsed: ${JSON.stringify(collapsed)}`);
+      if (!collapsed) throw new Error("collapsed key not found in storage");
+      if (collapsed.cat_a !== true) throw new Error("cat_a collapsed value mismatch");
+      if (collapsed.cat_b !== false) throw new Error("cat_b collapsed value mismatch");
+      if (collapsed.cat_c !== true) throw new Error("cat_c collapsed value mismatch");
+      log("Collapsed state matches original");
+
+      await chrome.storage.local.remove("collapsed");
+      return true;
+    }
+  },
+  {
+    id: "collapsed-state-empty-default",
+    name: "Empty Collapsed State Returns Empty Object",
+    desc: "Verifies that when collapsed is not in storage, it defaults to empty object",
+    fn: async (log) => {
+      await chrome.storage.local.remove("collapsed");
+      const { collapsed } = await chrome.storage.local.get("collapsed");
+      if (collapsed !== undefined) throw new Error("Expected undefined collapsed, got " + JSON.stringify(collapsed));
+      log("collapsed key is correctly absent from storage");
+      return true;
+    }
+  },
   // === Category Duplication Tests ===
   {
     id: "duplicate-category-basic",

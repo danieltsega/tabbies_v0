@@ -58,6 +58,10 @@ async function loadData() {
   } catch (e) {
     console.error("Failed to load data:", e);
   }
+  try {
+    const { collapsed } = await chrome.storage.local.get("collapsed");
+    if (collapsed) state.collapsed = collapsed;
+  } catch (e) {}
 }
 
 function renderActionBar() {
@@ -468,6 +472,7 @@ function bindEvents() {
       const catId = catHeader.dataset.categoryId;
       if (catId) {
         state.collapsed[catId] = !state.collapsed[catId];
+        saveCollapsedState();
         render();
       }
     }
@@ -595,13 +600,14 @@ function bindEvents() {
     render();
   });
 
-  $("toggle-all-btn").addEventListener("click", () => {
+  $("toggle-all-btn").addEventListener("click", async () => {
     const catIds = state.categories.map(c => c.id);
     if (state.categories.some(c => state.collapsed[c.id])) {
       catIds.forEach(id => delete state.collapsed[id]);
     } else {
       catIds.forEach(id => state.collapsed[id] = true);
     }
+    await saveCollapsedState();
     render();
   });
 
@@ -705,6 +711,10 @@ function openCategoryModal(categoryId) {
 function closeCategoryModal() {
   $("category-modal").classList.add("hidden");
   editingCategoryId = null;
+}
+
+async function saveCollapsedState() {
+  await chrome.storage.local.set({ collapsed: state.collapsed });
 }
 
 function relativeTime(ts) {
