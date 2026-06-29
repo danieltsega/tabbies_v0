@@ -1338,6 +1338,84 @@ const tests = [
       return true;
     }
   },
+  // === Category Duplication Tests ===
+  {
+    id: "duplicate-category-basic",
+    name: "Duplicate Category Creates Copy",
+    desc: "Verifies duplicateCategory creates a new category with copied tabs",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "Original", emoji: "🔵", color: "#3b82f6" });
+      const catId = catRes.category.id;
+      log(`Created original category: ${catId}`);
+
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: catId });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab in original: ${savedTabId}`);
+
+      const dupRes = await chrome.runtime.sendMessage({ action: "duplicateCategory", id: catId });
+      log(`Duplicate result: category=${dupRes.category.id}, tabsCopied=${dupRes.tabsCopied}`);
+      if (!dupRes.success) throw new Error("duplicateCategory failed: " + dupRes.error);
+      if (dupRes.tabsCopied !== 1) throw new Error(`Expected 1 copied tab, got ${dupRes.tabsCopied}`);
+
+      const data = await chrome.runtime.sendMessage({ action: "getAllData" });
+      const dupCat = data.data.categories.find(c => c.id === dupRes.category.id);
+      if (!dupCat) throw new Error("Duplicated category not found in storage");
+      if (dupCat.name !== "Original (copy)") throw new Error(`Name is "${dupCat.name}", expected "Original (copy)"`);
+      if (dupCat.emoji !== "🔵") throw new Error("Emoji was not copied");
+      if (dupCat.color !== "#3b82f6") throw new Error("Color was not copied");
+      log(`Duplicate category verified: "${dupCat.name}"`);
+
+      const dupTabs = data.data.savedTabs.filter(t => t.categoryId === dupRes.category.id);
+      if (dupTabs.length !== 1) throw new Error(`Expected 1 tab in duplicate, got ${dupTabs.length}`);
+      if (dupTabs[0].url !== TEST_URL_A) throw new Error("Copied tab URL mismatch");
+      if (dupTabs[0].id === savedTabId) throw new Error("Copied tab has same ID as original");
+      log("Copied tab has new ID and same URL");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: dupTabs[0].id });
+      await chrome.tabs.remove(tab.id);
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: dupRes.category.id });
+      return true;
+    }
+  },
+  {
+    id: "duplicate-category-empty",
+    name: "Duplicate Empty Category Creates Empty Copy",
+    desc: "Verifies duplicateCategory on an empty category copies 0 tabs",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "EmptyCat", emoji: "🫙", color: "#6b7280" });
+      const catId = catRes.category.id;
+      log(`Created empty category: ${catId}`);
+
+      const dupRes = await chrome.runtime.sendMessage({ action: "duplicateCategory", id: catId });
+      if (!dupRes.success) throw new Error("duplicateCategory failed: " + dupRes.error);
+      if (dupRes.tabsCopied !== 0) throw new Error(`Expected 0 copied tabs, got ${dupRes.tabsCopied}`);
+      log(`Empty category duplicated with ${dupRes.tabsCopied} tabs`);
+
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: dupRes.category.id });
+      return true;
+    }
+  },
+  {
+    id: "duplicate-category-nonexistent",
+    name: "Duplicate Non-Existent Category Throws Error",
+    desc: "Verifies duplicateCategory throws for non-existent category ID",
+    fn: async (log) => {
+      try {
+        await chrome.runtime.sendMessage({ action: "duplicateCategory", id: "no-such-category-id" });
+        throw new Error("Should have thrown for non-existent category");
+      } catch (e) {
+        if (e.message.includes("Category not found")) {
+          log("Correctly rejected: " + e.message);
+          return true;
+        }
+        throw e;
+      }
+    }
+  },
   // === Relative Time Tests ===
   {
     id: "relative-time-saved-at",

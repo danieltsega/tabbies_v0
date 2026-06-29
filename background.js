@@ -472,6 +472,33 @@ async function handleMessage(message, sender) {
       return { success: true, category: catsUpd[catIdx] };
     }
 
+    case "duplicateCategory": {
+      const { id: catId } = message;
+      const cats = await getCategories();
+      const source = cats.find(c => c.id === catId);
+      if (!source) throw new Error("Category not found");
+      const newCat = {
+        id: "cat_" + Date.now() + "_" + Math.random().toString(36).substr(2, 7),
+        name: source.name + " (copy)",
+        emoji: source.emoji || "📁",
+        color: source.color
+      };
+      cats.push(newCat);
+      await setCategories(cats);
+      const dupTabs = savedTabs.filter(t => t.categoryId === catId).map(t => ({
+        ...t,
+        id: "tab_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+        categoryId: newCat.id,
+        savedAt: Date.now()
+      }));
+      if (dupTabs.length > 0) {
+        savedTabs.push(...dupTabs);
+        await setSavedTabs(savedTabs);
+      }
+      rebuildContextMenus();
+      return { success: true, category: newCat, tabsCopied: dupTabs.length };
+    }
+
     case "deleteCategory": {
       const { id: catId } = message;
       let catsDel = await getCategories();

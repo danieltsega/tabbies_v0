@@ -345,6 +345,10 @@ main::-webkit-scrollbar-thumb:hover {
   background: rgba(79, 70, 229, 0.2);
 }
 
+.cat-dup:hover {
+  color: var(--success);
+}
+
 .cat-edit:hover {
   color: var(--accent);
 }

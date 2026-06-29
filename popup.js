@@ -172,6 +172,7 @@ function renderCategory(category, tabs) {
       ${coldCount > 0 ? `<button class="cat-btn cat-open-all" data-id="${category.id}" title="Open all cold tabs (${coldCount})">▶ ${coldCount}</button>` : ""}
       ${openCount > 0 ? `<button class="cat-btn cat-archive" data-id="${category.id}" title="Archive all open tabs (${openCount})">❄</button>` : ""}
       ${isBuiltIn ? "" : `
+        <button class="cat-btn cat-dup" data-id="${category.id}" title="Duplicate Category">⧉</button>
         <button class="cat-btn cat-edit" data-id="${category.id}" title="Edit Category">✎</button>
         <button class="cat-btn cat-delete" data-id="${category.id}" title="Delete Category">✕</button>
       `}
@@ -427,6 +428,18 @@ function bindEvents() {
         render();
       } catch (err) {
         console.error("Archive failed:", err);
+      }
+      return;
+    }
+
+    const dupBtn = e.target.closest(".cat-dup");
+    if (dupBtn) {
+      try {
+        await chrome.runtime.sendMessage({ action: "duplicateCategory", id: dupBtn.dataset.id });
+        await loadData();
+        render();
+      } catch (err) {
+        console.error("Duplicate category failed:", err);
       }
       return;
     }
