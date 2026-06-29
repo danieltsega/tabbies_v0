@@ -288,6 +288,19 @@ main::-webkit-scrollbar-thumb:hover {
   text-align: center;
 }
 
+.cb {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  margin-left: 3px;
+  padding: 0 3px;
+  line-height: 1.4;
+}
+
+.cb-active { color: var(--success); }
+.cb-hot { color: var(--warning); }
+.cb-cold { color: var(--text-muted); }
+
 .cat-btn {
   background: none;
   border: none;

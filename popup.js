@@ -155,14 +155,20 @@ function renderCategory(category, tabs) {
   div.className = "category";
   const isBuiltIn = category.id === "__uncategorized";
   const coldCount = tabs.filter(t => t.status === "cold").length;
-  const openCount = tabs.filter(t => t.status === "active" || t.status === "hot").length;
+  const hotCount = tabs.filter(t => t.status === "hot").length;
+  const activeCount = tabs.filter(t => t.status === "active").length;
+  const openCount = activeCount + hotCount;
   const isCollapsed = state.collapsed[category.id];
+  const breakdown = [];
+  if (activeCount > 0) breakdown.push(`<span class="cb cb-active">${activeCount}</span>`);
+  if (hotCount > 0) breakdown.push(`<span class="cb cb-hot">${hotCount}</span>`);
+  if (coldCount > 0) breakdown.push(`<span class="cb cb-cold">${coldCount}</span>`);
   div.innerHTML = `
     <div class="category-header" draggable="${isBuiltIn ? "false" : "true"}" data-category-id="${category.id}" style="--cat-color: ${category.color}">
       <span class="cat-chevron">${isCollapsed ? "▶" : "▼"}</span>
       <span class="cat-emoji">${category.emoji || "📁"}</span>
       <span class="cat-name">${escapeHtml(category.name)}</span>
-      <span class="cat-count">${tabs.length}</span>
+      <span class="cat-count">${tabs.length}${breakdown.length > 0 ? ` ${breakdown.join("")}` : ""}</span>
       ${coldCount > 0 ? `<button class="cat-btn cat-open-all" data-id="${category.id}" title="Open all cold tabs (${coldCount})">▶ ${coldCount}</button>` : ""}
       ${openCount > 0 ? `<button class="cat-btn cat-archive" data-id="${category.id}" title="Archive all open tabs (${openCount})">❄</button>` : ""}
       ${isBuiltIn ? "" : `
