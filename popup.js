@@ -133,6 +133,14 @@ function render() {
     footer.style.display = state.savedTabs.length > 0 ? "" : "none";
   }
 
+  const clearVisibleBtn = $("clear-visible-btn");
+  if (clearVisibleBtn) {
+    const isFiltered = state.searchQuery || state.statusFilter !== "all";
+    const hasLess = visibleTabs.length < state.savedTabs.length;
+    clearVisibleBtn.style.display = isFiltered && hasLess && visibleTabs.length > 0 ? "" : "none";
+    clearVisibleBtn.textContent = `Remove visible (${visibleTabs.length})`;
+  }
+
   if (visibleTabs.length === 0) {
     container.innerHTML = state.searchQuery
       ? `<div class="empty-state">No tabs matching "${escapeHtml(state.searchQuery)}"</div>`
@@ -527,6 +535,20 @@ function bindEvents() {
       render();
     } catch (err) {
       console.error("Save all failed:", err);
+    }
+  });
+
+  $("clear-visible-btn").addEventListener("click", async () => {
+    const visibleTabs = getSortedTabs(getFilteredTabs());
+    if (visibleTabs.length === 0) return;
+    if (!confirm(`Remove all ${visibleTabs.length} visible tabs?`)) return;
+    pushUndo(state.savedTabs, state.categories, "Visible tabs removed");
+    try {
+      await chrome.runtime.sendMessage({ action: "removeMultipleTabs", savedTabIds: visibleTabs.map(t => t.id) });
+      await loadData();
+      render();
+    } catch (err) {
+      console.error("Remove visible failed:", err);
     }
   });
 

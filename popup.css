@@ -161,6 +161,7 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 8px;
   padding: 6px 12px;
   border-top: 1px solid var(--border);
 }
@@ -179,6 +180,11 @@ main {
 .footer-btn:hover {
   color: var(--danger);
   background: rgba(239, 68, 68, 0.06);
+}
+
+#clear-visible-btn:hover {
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.06);
 }
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) rgba(255, 255, 255, 0.02);

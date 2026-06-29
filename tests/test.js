@@ -1338,6 +1338,76 @@ const tests = [
       return true;
     }
   },
+  // === Batch Remove Tests ===
+  {
+    id: "remove-multiple-tabs",
+    name: "Remove Multiple Tabs at Once",
+    desc: "Verifies removeMultipleTabs removes all specified tabs",
+    fn: async (log) => {
+      const tabA = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const tabB = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      const tabC = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+
+      const saveA = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabA.id, categoryId: "batch-test" });
+      const saveB = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabB.id, categoryId: "batch-test" });
+      const saveC = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabC.id, categoryId: "batch-test" });
+      log(`Saved 3 tabs: ${saveA.tab.id}, ${saveB.tab.id}, ${saveC.tab.id}`);
+
+      const idsToRemove = [saveA.tab.id, saveC.tab.id];
+      const res = await chrome.runtime.sendMessage({ action: "removeMultipleTabs", savedTabIds: idsToRemove });
+      if (!res.success) throw new Error("removeMultipleTabs failed: " + res.error);
+      if (res.removed !== 2) throw new Error(`Expected 2 removed, got ${res.removed}`);
+      log(`Removed ${res.removed} tabs`);
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const stillPresent = savedTabs.filter(t => idsToRemove.includes(t.id));
+      if (stillPresent.length !== 0) throw new Error("Some tabs were not removed");
+      const kept = savedTabs.find(t => t.id === saveB.tab.id);
+      if (!kept) throw new Error("Tab B was incorrectly removed");
+      log("Tab A and C removed, Tab B preserved");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveB.tab.id });
+      await chrome.tabs.remove(tabA.id);
+      await chrome.tabs.remove(tabB.id);
+      await chrome.tabs.remove(tabC.id);
+      return true;
+    }
+  },
+  {
+    id: "remove-multiple-empty",
+    name: "Remove Multiple Tabs With Empty Array Returns Zero",
+    desc: "Verifies removeMultipleTabs handles empty array gracefully",
+    fn: async (log) => {
+      const res = await chrome.runtime.sendMessage({ action: "removeMultipleTabs", savedTabIds: [] });
+      if (!res.success) throw new Error("removeMultipleTabs failed: " + res.error);
+      if (res.removed !== 0) throw new Error(`Expected 0 removed, got ${res.removed}`);
+      log("Empty array returned 0 removed");
+      return true;
+    }
+  },
+  {
+    id: "remove-multiple-hot-tabs",
+    name: "Remove Multiple Tabs Closes Chrome Tabs",
+    desc: "Verifies removeMultipleTabs closes hot chrome tabs",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const shelveRes = await chrome.runtime.sendMessage({ action: "shelveActiveTab", tabId: tab.id, categoryId: "batch-hot" });
+      const savedTabId = shelveRes.tab.id;
+      log(`Shelved tab: ${savedTabId}, status=hot`);
+
+      const res = await chrome.runtime.sendMessage({ action: "removeMultipleTabs", savedTabIds: [savedTabId] });
+      if (res.removed !== 1) throw new Error(`Expected 1 removed, got ${res.removed}`);
+      log("Hot tab removed successfully");
+
+      try {
+        await chrome.tabs.get(tab.id);
+        throw new Error("Chrome tab should have been closed");
+      } catch (e) {
+        log("Chrome tab was correctly closed");
+      }
+      return true;
+    }
+  },
   // === Collapsed State Persistence Tests ===
   {
     id: "collapsed-state-save-load",

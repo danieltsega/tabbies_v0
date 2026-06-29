@@ -377,6 +377,23 @@ async function handleMessage(message, sender) {
       return { success: true };
     }
 
+    case "removeMultipleTabs": {
+      const { savedTabIds } = message;
+      if (!Array.isArray(savedTabIds) || savedTabIds.length === 0) {
+        return { success: true, removed: 0 };
+      }
+      const idSet = new Set(savedTabIds);
+      const removedTabs = savedTabs.filter(t => idSet.has(t.id));
+      savedTabs = savedTabs.filter(t => !idSet.has(t.id));
+      for (const tab of removedTabs) {
+        if (tab.status === "hot" && tab.activeTabId) {
+          try { await chrome.tabs.remove(tab.activeTabId); } catch (e) {}
+        }
+      }
+      await setSavedTabs(savedTabs);
+      return { success: true, removed: removedTabs.length };
+    }
+
     case "removeSavedTab": {
       const { savedTabId } = message;
       const tabIndex = savedTabs.findIndex(t => t.id === savedTabId);
