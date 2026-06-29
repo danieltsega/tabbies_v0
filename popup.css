@@ -424,6 +424,13 @@ main::-webkit-scrollbar-thumb:hover {
   min-width: 0;
 }
 
+.tab-time {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .status-dot {
   width: 7px;
   height: 7px;

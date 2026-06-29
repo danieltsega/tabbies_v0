@@ -192,6 +192,7 @@ function renderTabItem(tab) {
       ${isRecent ? '<span class="recent-badge">NEW</span>' : ""}
       <img class="favicon" src="${src}"${onerrorAttr} />
       <span class="tab-title" title="${escapeHtml(tab.title)}&#10;${escapeHtml(tab.url)}">${escapeHtml(tab.title)}</span>
+      <span class="tab-time">${relativeTime(tab.savedAt)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
         <button class="act-btn act-move-top" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}" title="Move to top">⤒</button>
@@ -691,6 +692,19 @@ function openCategoryModal(categoryId) {
 function closeCategoryModal() {
   $("category-modal").classList.add("hidden");
   editingCategoryId = null;
+}
+
+function relativeTime(ts) {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return days + "d ago";
+  return Math.floor(days / 30) + "mo ago";
 }
 
 function escapeHtml(str) {

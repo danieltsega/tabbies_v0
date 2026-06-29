@@ -1338,6 +1338,51 @@ const tests = [
       return true;
     }
   },
+  // === Relative Time Tests ===
+  {
+    id: "relative-time-saved-at",
+    name: "savedAt Timestamp Is Set on Save",
+    desc: "Verifies every saved tab has a savedAt timestamp for relative time display",
+    fn: async (log) => {
+      const tabA = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const tabB = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      const saveA = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabA.id, categoryId: "rt-test" });
+      const saveB = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabB.id, categoryId: "rt-test" });
+      if (!saveA.tab.savedAt) throw new Error("Tab A missing savedAt");
+      if (!saveB.tab.savedAt) throw new Error("Tab B missing savedAt");
+      log(`Tab A savedAt: ${saveA.tab.savedAt}, Tab B savedAt: ${saveB.tab.savedAt}`);
+      if (saveB.tab.savedAt < saveA.tab.savedAt) throw new Error("Tab B savedAt should be after Tab A");
+      log("savedAt is properly sequential");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveA.tab.id });
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveB.tab.id });
+      await chrome.tabs.remove(tabA.id);
+      await chrome.tabs.remove(tabB.id);
+      return true;
+    }
+  },
+  {
+    id: "relative-time-move-updates",
+    name: "moveTab Updates savedAt on Reorder",
+    desc: "Verifies moveTab sets savedAt to current timestamp",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "rt-move" });
+      const originalSavedAt = saveRes.tab.savedAt;
+      log(`Original savedAt: ${originalSavedAt}`);
+
+      await new Promise(r => setTimeout(r, 50));
+      const moveRes = await chrome.runtime.sendMessage({ action: "moveTab", savedTabId: saveRes.tab.id, targetIndex: 0 });
+      log(`savedAt after move: ${moveRes.tab.savedAt}`);
+
+      if (moveRes.tab.savedAt <= originalSavedAt) throw new Error("savedAt was not updated by moveTab");
+      log("moveTab correctly updates savedAt");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
   // === Tab Title/URL Tooltip Tests ===
   {
     id: "tab-tooltip-data",
