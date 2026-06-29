@@ -191,7 +191,7 @@ function renderTabItem(tab) {
     <div class="tab-item${isRecent ? " tab-recent" : ""}" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
       ${isRecent ? '<span class="recent-badge">NEW</span>' : ""}
       <img class="favicon" src="${src}"${onerrorAttr} />
-      <span class="tab-title" title="${escapeHtml(tab.title)}">${escapeHtml(tab.title)}</span>
+      <span class="tab-title" title="${escapeHtml(tab.title)}&#10;${escapeHtml(tab.url)}">${escapeHtml(tab.title)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
         <button class="act-btn act-move-top" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}" title="Move to top">⤒</button>

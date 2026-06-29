@@ -1338,6 +1338,26 @@ const tests = [
       return true;
     }
   },
+  // === Tab Title/URL Tooltip Tests ===
+  {
+    id: "tab-tooltip-data",
+    name: "Saved Tab Has Both Title and URL",
+    desc: "Verifies saved tabs store both title and url for tooltip display",
+    fn: async (log) => {
+      const testTab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: testTab.id, categoryId: "tooltip-test" });
+      if (!saveRes.success) throw new Error("Save failed");
+      log(`Title: "${saveRes.tab.title}", URL: "${saveRes.tab.url}"`);
+      if (!saveRes.tab.title) throw new Error("Title is missing");
+      if (!saveRes.tab.url) throw new Error("URL is missing");
+      if (saveRes.tab.url !== TEST_URL_A) throw new Error(`URL mismatch: ${saveRes.tab.url} !== ${TEST_URL_A}`);
+      log("Tab has both title and URL stored");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(testTab.id);
+      return true;
+    }
+  },
   {
     id: "old-tab-no-recent-flag",
     name: "Older Tab savedAt Is Distant Past",
