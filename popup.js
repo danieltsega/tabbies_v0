@@ -123,6 +123,10 @@ function renderSortBar() {
 }
 
 function render() {
+  const countEl = $("tab-count-header");
+  if (countEl) {
+    countEl.textContent = state.savedTabs.length > 0 ? `(${state.savedTabs.length})` : "";
+  }
   renderActionBar();
   renderFilterBar();
   renderSortBar();

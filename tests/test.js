@@ -1408,6 +1408,37 @@ const tests = [
       return true;
     }
   },
+  // === Header Count Tests ===
+  {
+    id: "header-count-accurate",
+    name: "Header Count Matches Saved Tab Count",
+    desc: "Verifies getAllData returns accurate tab count for header display",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "count-test" });
+      log(`Saved tab: ${saveRes.tab.id}`);
+
+      const res = await chrome.runtime.sendMessage({ action: "getAllData" });
+      const count = res.data.savedTabs.length;
+      log(`Total saved tabs: ${count}`);
+      if (count < 1) throw new Error("Expected at least 1 saved tab");
+
+      const tab2 = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      const saveRes2 = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab2.id, categoryId: "count-test" });
+      log(`Saved tab: ${saveRes2.tab.id}`);
+
+      const res2 = await chrome.runtime.sendMessage({ action: "getAllData" });
+      log(`Total saved tabs after second: ${res2.data.savedTabs.length}`);
+      if (res2.data.savedTabs.length !== count + 1) throw new Error(`Expected ${count + 1} tabs, got ${res2.data.savedTabs.length}`);
+      log("Count is accurate");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes2.tab.id });
+      await chrome.tabs.remove(tab.id);
+      await chrome.tabs.remove(tab2.id);
+      return true;
+    }
+  },
   // === Category Export Tests ===
   {
     id: "export-category-basic",

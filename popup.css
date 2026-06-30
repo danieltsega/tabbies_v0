@@ -46,6 +46,13 @@ header {
   margin-bottom: 8px;
 }
 
+.header-count {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
 h1 {
   font-size: 1.25rem;
   font-weight: 700;
