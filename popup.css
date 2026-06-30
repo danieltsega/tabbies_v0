@@ -355,6 +355,10 @@ main::-webkit-scrollbar-thumb:hover {
   color: var(--success);
 }
 
+.cat-export:hover {
+  color: var(--accent);
+}
+
 .cat-edit:hover {
   color: var(--accent);
 }

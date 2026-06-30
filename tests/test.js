@@ -1408,6 +1408,56 @@ const tests = [
       return true;
     }
   },
+  // === Category Export Tests ===
+  {
+    id: "export-category-basic",
+    name: "Export Category Returns Category and Its Tabs",
+    desc: "Verifies exportCategory returns category data with filtered tabs",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "ExportTest", emoji: "📦", color: "#22c55e" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: catId });
+      log(`Saved tab: ${saveRes.tab.id}`);
+
+      const exportRes = await chrome.runtime.sendMessage({ action: "exportCategory", id: catId });
+      if (!exportRes.success) throw new Error("exportCategory failed: " + exportRes.error);
+      log(`Export data: ${exportRes.data.tabs.length} tabs, category="${exportRes.data.category.name}"`);
+
+      if (exportRes.data.category.id !== catId) throw new Error("Category ID mismatch");
+      if (exportRes.data.category.name !== "ExportTest") throw new Error("Category name mismatch");
+      if (!Array.isArray(exportRes.data.tabs)) throw new Error("tabs is not an array");
+      if (exportRes.data.tabs.length !== 1) throw new Error(`Expected 1 tab, got ${exportRes.data.tabs.length}`);
+      if (exportRes.data.tabs[0].url !== TEST_URL_A) throw new Error("Tab URL mismatch");
+      if (!exportRes.data.version) throw new Error("Missing version field");
+      if (!exportRes.data.exportedAt) throw new Error("Missing exportedAt field");
+      log("Export data is well-formed");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(tab.id);
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
+  {
+    id: "export-category-nonexistent",
+    name: "Export Non-Existent Category Throws Error",
+    desc: "Verifies exportCategory throws for non-existent category ID",
+    fn: async (log) => {
+      try {
+        await chrome.runtime.sendMessage({ action: "exportCategory", id: "no-such-category" });
+        throw new Error("Should have thrown for non-existent category");
+      } catch (e) {
+        if (e.message.includes("Category not found")) {
+          log("Correctly rejected: " + e.message);
+          return true;
+        }
+        throw e;
+      }
+    }
+  },
   // === Pin/Favorite Tests ===
   {
     id: "pin-tab",

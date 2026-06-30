@@ -476,6 +476,15 @@ async function handleMessage(message, sender) {
       return { success: true, category: newCat };
     }
 
+    case "exportCategory": {
+      const { id: catId } = message;
+      const cats = await getCategories();
+      const cat = cats.find(c => c.id === catId);
+      if (!cat) throw new Error("Category not found");
+      const categoryTabs = savedTabs.filter(t => t.categoryId === catId);
+      return { success: true, data: { version: 1, exportedAt: Date.now(), category: cat, tabs: categoryTabs } };
+    }
+
     case "updateCategory": {
       const { id, name, emoji, color } = message;
       const catsUpd = await getCategories();

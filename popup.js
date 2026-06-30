@@ -186,6 +186,7 @@ function renderCategory(category, tabs) {
       ${coldCount > 0 ? `<button class="cat-btn cat-open-all" data-id="${category.id}" title="Open all cold tabs (${coldCount})">▶ ${coldCount}</button>` : ""}
       ${openCount > 0 ? `<button class="cat-btn cat-archive" data-id="${category.id}" title="Archive all open tabs (${openCount})">❄</button>` : ""}
       ${isBuiltIn ? "" : `
+        <button class="cat-btn cat-export" data-id="${category.id}" title="Export Category">↓</button>
         <button class="cat-btn cat-dup" data-id="${category.id}" title="Duplicate Category">⧉</button>
         <button class="cat-btn cat-edit" data-id="${category.id}" title="Edit Category">✎</button>
         <button class="cat-btn cat-delete" data-id="${category.id}" title="Delete Category">✕</button>
@@ -528,6 +529,23 @@ function bindEvents() {
         render();
       } catch (err) {
         console.error("Duplicate category failed:", err);
+      }
+      return;
+    }
+
+    const exportBtn = e.target.closest(".cat-export");
+    if (exportBtn) {
+      try {
+        const res = await chrome.runtime.sendMessage({ action: "exportCategory", id: exportBtn.dataset.id });
+        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `tabbies-${res.data.category.name.replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Export category failed:", err);
       }
       return;
     }
