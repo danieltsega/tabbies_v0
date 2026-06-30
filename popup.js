@@ -220,7 +220,10 @@ function renderTabItem(tab) {
       <span class="tab-time">${relativeTime(tab.savedAt)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
-        ${actions.map((a) => `<button class="act-btn act-${a.action}" data-action="${a.action}" data-id="${escapeHtml(tab.id)}">${a.label}</button>`).join("")}
+        ${actions.map((a) => {
+          const title = a.action === "removeSavedTab" ? "Remove" : a.label;
+          return `<button class="act-btn act-${a.action}" data-action="${a.action}" data-id="${escapeHtml(tab.id)}" title="${escapeHtml(title)}">${a.label}</button>`;
+        }).join("")}
       </div>
       <div class="tab-menu">
         <button class="hamburger" data-id="${escapeHtml(tab.id)}" title="More actions">⋮</button>
@@ -241,20 +244,20 @@ function getActions(tab) {
       return [
         { action: "focusActiveTab", label: "Focus" },
         { action: "shelveSavedTab", label: "Shelve" },
-        { action: "removeSavedTab", label: "Remove" },
+        { action: "removeSavedTab", label: "🗑" },
       ];
     case "hot":
       return [
         { action: "unshelveTab", label: "Unshelve" },
-        { action: "removeSavedTab", label: "Remove" },
+        { action: "removeSavedTab", label: "🗑" },
       ];
     case "cold":
       return [
         { action: "openColdTab", label: "Open" },
-        { action: "removeSavedTab", label: "Remove" },
+        { action: "removeSavedTab", label: "🗑" },
       ];
     default:
-      return [{ action: "removeSavedTab", label: "Remove" }];
+      return [{ action: "removeSavedTab", label: "🗑" }];
   }
 }
 
