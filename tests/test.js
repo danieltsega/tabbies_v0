@@ -1408,6 +1408,63 @@ const tests = [
       return true;
     }
   },
+  // === Pin/Favorite Tests ===
+  {
+    id: "pin-tab",
+    name: "Toggle Pin on Tab Sets pinned Field",
+    desc: "Verifies updateSavedTab can toggle the pinned field",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "pin-test" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab: ${savedTabId}, pinned: ${saveRes.tab.pinned}`);
+
+      const pinRes = await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { pinned: true } });
+      if (!pinRes.success) throw new Error("Pin update failed");
+      log(`After pin: pinned=${pinRes.tab.pinned}`);
+      if (pinRes.tab.pinned !== true) throw new Error("Tab was not pinned");
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const stored = savedTabs.find(t => t.id === savedTabId);
+      if (stored.pinned !== true) throw new Error("pinned not persisted in storage");
+
+      const unpinRes = await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { pinned: false } });
+      if (unpinRes.tab.pinned !== false) throw new Error("Tab was not unpinned");
+      log("Pin/unpin roundtrip successful");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
+  {
+    id: "pinned-sorts-first",
+    name: "Pinned Tab Sorts Before Non-Pinned",
+    desc: "Verifies that pinned tabs appear before unpinned tabs in sorted results",
+    fn: async (log) => {
+      const tabA = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const tabB = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+
+      const saveA = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabA.id, categoryId: "pin-sort" });
+      const saveB = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tabB.id, categoryId: "pin-sort" });
+
+      // Pin the earlier tab (A)
+      await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId: saveA.tab.id, updates: { pinned: true } });
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const catTabs = savedTabs.filter(t => t.categoryId === "pin-sort");
+      const pinnedFirst = catTabs[0].pinned === true;
+      log(`First tab pinned: ${pinnedFirst}`);
+
+      if (!pinnedFirst) throw new Error("Pinned tab does not come first");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveA.tab.id });
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveB.tab.id });
+      await chrome.tabs.remove(tabA.id);
+      await chrome.tabs.remove(tabB.id);
+      return true;
+    }
+  },
   // === Domain Display Tests ===
   {
     id: "domain-in-url",

@@ -417,6 +417,14 @@ main::-webkit-scrollbar-thumb:hover {
   outline-offset: -2px;
 }
 
+.tab-item.tab-pinned {
+  border-left: 2px solid var(--warning);
+}
+
+.tab-item.tab-pinned .tab-title {
+  color: var(--warning);
+}
+
 .favicon {
   width: 16px;
   height: 16px;

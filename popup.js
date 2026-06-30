@@ -99,6 +99,8 @@ function getFilteredTabs() {
 function getSortedTabs(tabs) {
   const sorted = [...tabs];
   sorted.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
     switch (state.sortBy) {
       case "oldest": return (a.savedAt || 0) - (b.savedAt || 0);
       case "title-asc": return (a.title || "").localeCompare(b.title || "");
@@ -213,7 +215,7 @@ function renderTabItem(tab) {
   ` : "";
 
   return `
-    <div class="tab-item${isRecent ? " tab-recent" : ""}" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
+    <div class="tab-item${isRecent ? " tab-recent" : ""}${tab.pinned ? " tab-pinned" : ""}" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
       ${isRecent ? '<span class="recent-badge">NEW</span>' : ""}
       <img class="favicon" src="${src}"${onerrorAttr} />
       <span class="tab-title" title="${escapeHtml(tab.title)}&#10;${escapeHtml(tab.url)}">${escapeHtml(tab.title)}</span>
@@ -230,6 +232,7 @@ function renderTabItem(tab) {
         <button class="hamburger" data-id="${escapeHtml(tab.id)}" title="More actions">⋮</button>
         <div class="hm-dropdown">
           <button class="hm-item" data-action="copyTabUrl" data-id="${escapeHtml(tab.id)}" data-url="${escapeHtml(tab.url)}">📋 Copy URL</button>
+          <button class="hm-item" data-action="togglePin" data-id="${escapeHtml(tab.id)}">${tab.pinned ? '★' : '☆'} ${tab.pinned ? 'Unpin' : 'Pin to top'}</button>
           <button class="hm-item" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}">⬆ Move to top</button>
           <button class="hm-item" data-action="moveTabToBottom" data-id="${escapeHtml(tab.id)}">⬇ Move to bottom</button>
           ${catSection}
@@ -431,6 +434,19 @@ function bindEvents() {
             setTimeout(() => { hmItem.textContent = "📋 Copy URL"; }, 1500);
           } catch (err) {
             console.error("Copy failed:", err);
+          }
+        }
+        return;
+      }
+      if (action === "togglePin") {
+        const tab = state.savedTabs.find(t => t.id === savedTabId);
+        if (tab) {
+          try {
+            await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { pinned: !tab.pinned } });
+            await loadData();
+            render();
+          } catch (err) {
+            console.error("Pin toggle failed:", err);
           }
         }
         return;

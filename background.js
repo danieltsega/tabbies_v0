@@ -419,7 +419,7 @@ async function handleMessage(message, sender) {
       const tabIndex = savedTabs.findIndex(t => t.id === savedTabId);
       if (tabIndex === -1) throw new Error("Saved tab not found");
       if (typeof updates !== "object" || updates === null) throw new Error("Invalid updates payload");
-      const allowed = ["categoryId", "title", "url", "favIconUrl"];
+      const allowed = ["categoryId", "title", "url", "favIconUrl", "pinned"];
       for (const key of Object.keys(updates)) {
         if (!allowed.includes(key)) {
           throw new Error("Cannot update field: " + key);
