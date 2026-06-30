@@ -556,6 +556,15 @@ main::-webkit-scrollbar-thumb:hover {
   letter-spacing: 0.5px;
 }
 
+.hm-color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 /* Drag and drop */
 .tab-item.dragging,
 .category-header.dragging {

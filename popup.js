@@ -205,7 +205,7 @@ function renderTabItem(tab) {
   const isRecent = tab.savedAt && Date.now() - tab.savedAt < 300000;
 
   const catOptions = state.categories.map(c =>
-    `<button class="hm-item" data-action="setCategory" data-cat-id="${escapeHtml(c.id)}" data-id="${escapeHtml(tab.id)}">${escapeHtml(c.emoji || "📁")} ${escapeHtml(c.name)}${c.id === tab.categoryId ? ' ✓' : ''}</button>`
+    `<button class="hm-item" data-action="setCategory" data-cat-id="${escapeHtml(c.id)}" data-id="${escapeHtml(tab.id)}"><span class="hm-color" style="background:${c.color}"></span>${escapeHtml(c.emoji || "📁")} ${escapeHtml(c.name)}${c.id === tab.categoryId ? ' ✓' : ''}</button>`
   ).join("");
   const hasMatchingCat = tab.categoryId && state.categories.some(c => c.id === tab.categoryId);
   const catSection = state.categories.length > 0 ? `
