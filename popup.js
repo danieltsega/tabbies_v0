@@ -200,6 +200,18 @@ function renderTabItem(tab) {
   const src = tab.favIconUrl ? escapeHtml(tab.favIconUrl) : FAV_FALLBACK;
   const onerrorAttr = tab.favIconUrl ? ` onerror="this.onerror=null;this.src='${FAV_FALLBACK}'"` : "";
   const isRecent = tab.savedAt && Date.now() - tab.savedAt < 300000;
+
+  const catOptions = state.categories.map(c =>
+    `<button class="hm-item" data-action="setCategory" data-cat-id="${escapeHtml(c.id)}" data-id="${escapeHtml(tab.id)}">${escapeHtml(c.emoji || "📁")} ${escapeHtml(c.name)}${c.id === tab.categoryId ? ' ✓' : ''}</button>`
+  ).join("");
+  const hasMatchingCat = tab.categoryId && state.categories.some(c => c.id === tab.categoryId);
+  const catSection = state.categories.length > 0 ? `
+    <hr class="hm-divider">
+    <div class="hm-label">Move to category</div>
+    <button class="hm-item${!hasMatchingCat ? ' hm-active' : ''}" data-action="setCategory" data-cat-id="" data-id="${escapeHtml(tab.id)}">No category${!hasMatchingCat ? ' ✓' : ''}</button>
+    ${catOptions}
+  ` : "";
+
   return `
     <div class="tab-item${isRecent ? " tab-recent" : ""}" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
       ${isRecent ? '<span class="recent-badge">NEW</span>' : ""}
@@ -208,25 +220,19 @@ function renderTabItem(tab) {
       <span class="tab-time">${relativeTime(tab.savedAt)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
-        <button class="act-btn act-copy-url" data-action="copyTabUrl" data-url="${escapeHtml(tab.url)}" data-id="${escapeHtml(tab.id)}" title="Copy URL">📋</button>
-        <button class="act-btn act-move-top" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}" title="Move to top">⤒</button>
-        <button class="act-btn act-move-bot" data-action="moveTabToBottom" data-id="${escapeHtml(tab.id)}" title="Move to bottom">⤓</button>
-        ${state.categories.length > 0 ? categorySelectHTML(tab) : ""}
         ${actions.map((a) => `<button class="act-btn act-${a.action}" data-action="${a.action}" data-id="${escapeHtml(tab.id)}">${a.label}</button>`).join("")}
+      </div>
+      <div class="tab-menu">
+        <button class="hamburger" data-id="${escapeHtml(tab.id)}" title="More actions">⋮</button>
+        <div class="hm-dropdown">
+          <button class="hm-item" data-action="copyTabUrl" data-id="${escapeHtml(tab.id)}" data-url="${escapeHtml(tab.url)}">📋 Copy URL</button>
+          <button class="hm-item" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}">⬆ Move to top</button>
+          <button class="hm-item" data-action="moveTabToBottom" data-id="${escapeHtml(tab.id)}">⬇ Move to bottom</button>
+          ${catSection}
+        </div>
       </div>
     </div>
   `;
-}
-
-function categorySelectHTML(tab) {
-  const options = state.categories.map(c =>
-    `<option value="${escapeHtml(c.id)}" ${c.id === tab.categoryId ? "selected" : ""}>${escapeHtml(c.emoji || "📁")} ${escapeHtml(c.name)}</option>`
-  ).join("");
-  const hasMatchingCat = tab.categoryId && state.categories.some(c => c.id === tab.categoryId);
-  return `<select class="cat-select" data-id="${escapeHtml(tab.id)}" title="Move to category">
-    <option value="" ${hasMatchingCat ? "" : "selected"}>No category</option>
-    ${options}
-  </select>`;
 }
 
 function getActions(tab) {
@@ -378,31 +384,53 @@ function bindEvents() {
     }
   });
 
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".hm-dropdown") && !e.target.closest(".hamburger")) {
+      document.querySelectorAll(".tab-menu.open").forEach(m => m.classList.remove("open"));
+    }
+  });
+
   $("tab-list").addEventListener("click", async (e) => {
-    const btn = e.target.closest(".act-btn");
-    if (btn) {
+    const ham = e.target.closest(".hamburger");
+    if (ham) {
       e.stopPropagation();
-      const action = btn.dataset.action;
-      const savedTabId = btn.dataset.id;
-      if (action === "removeSavedTab" && !confirm("Remove this saved tab?")) return;
-      if (action === "removeSavedTab") {
-        pushUndo(state.savedTabs, state.categories, "Tab removed");
+      const menu = ham.parentElement;
+      const wasOpen = menu.classList.contains("open");
+      document.querySelectorAll(".tab-menu.open").forEach(m => m.classList.remove("open"));
+      if (!wasOpen) menu.classList.add("open");
+      return;
+    }
+
+    const hmItem = e.target.closest(".hm-item");
+    if (hmItem) {
+      e.stopPropagation();
+      const action = hmItem.dataset.action;
+      const savedTabId = hmItem.dataset.id;
+      hmItem.closest(".tab-menu")?.classList.remove("open");
+      if (action === "setCategory") {
+        const newCategoryId = hmItem.dataset.catId || null;
+        try {
+          await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { categoryId: newCategoryId } });
+          await loadData();
+          render();
+        } catch (err) {
+          console.error("Category move failed:", err);
+        }
+        return;
       }
       if (action === "copyTabUrl") {
-        e.preventDefault();
-        const url = btn.dataset.url;
+        const url = hmItem.dataset.url;
         if (url) {
           try {
             await navigator.clipboard.writeText(url);
-            btn.textContent = "✓";
-            setTimeout(() => { btn.textContent = "📋"; }, 1500);
+            hmItem.textContent = "✓ Copied!";
+            setTimeout(() => { hmItem.textContent = "📋 Copy URL"; }, 1500);
           } catch (err) {
             console.error("Copy failed:", err);
           }
         }
         return;
       }
-
       if (action === "moveTabToTop" || action === "moveTabToBottom") {
         const tab = state.savedTabs.find(t => t.id === savedTabId);
         if (tab) {
@@ -422,6 +450,18 @@ function bindEvents() {
           }
         }
         return;
+      }
+      return;
+    }
+
+    const btn = e.target.closest(".act-btn");
+    if (btn) {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      const savedTabId = btn.dataset.id;
+      if (action === "removeSavedTab" && !confirm("Remove this saved tab?")) return;
+      if (action === "removeSavedTab") {
+        pushUndo(state.savedTabs, state.categories, "Tab removed");
       }
       try {
         await chrome.runtime.sendMessage({ action, savedTabId });
