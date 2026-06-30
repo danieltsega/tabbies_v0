@@ -217,6 +217,7 @@ function renderTabItem(tab) {
       ${isRecent ? '<span class="recent-badge">NEW</span>' : ""}
       <img class="favicon" src="${src}"${onerrorAttr} />
       <span class="tab-title" title="${escapeHtml(tab.title)}&#10;${escapeHtml(tab.url)}">${escapeHtml(tab.title)}</span>
+      <span class="tab-domain">${extractDomain(tab.url)}</span>
       <span class="tab-time">${relativeTime(tab.savedAt)}</span>
       <span class="status-dot status-${tab.status}" title="${statusLabels[tab.status] || tab.status}"></span>
       <div class="tab-actions">
@@ -796,6 +797,11 @@ function closeCategoryModal() {
 
 async function saveCollapsedState() {
   await chrome.storage.local.set({ collapsed: state.collapsed });
+}
+
+function extractDomain(url) {
+  if (!url) return "";
+  try { return new URL(url).hostname; } catch (e) { return ""; }
 }
 
 function relativeTime(ts) {

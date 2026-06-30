@@ -1408,6 +1408,47 @@ const tests = [
       return true;
     }
   },
+  // === Domain Display Tests ===
+  {
+    id: "domain-in-url",
+    name: "Saved Tab URL Contains Domain",
+    desc: "Verifies saved tabs have valid URLs with hostnames for domain display",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "domain-test" });
+      if (!saveRes.success) throw new Error("Save failed");
+      log(`URL: ${saveRes.tab.url}`);
+      if (!saveRes.tab.url) throw new Error("URL is missing");
+      if (!saveRes.tab.url.startsWith("http")) throw new Error("URL is not a valid HTTP URL");
+      log("Tab has a valid HTTP URL with domain");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
+  {
+    id: "domain-extract",
+    name: "Domain Can Be Extracted from Tab URL",
+    desc: "Verifies the URL stored can produce a hostname",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_B, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "domain-extract" });
+      const url = saveRes.tab.url;
+      log(`URL: ${url}`);
+      try {
+        const hostname = new URL(url).hostname;
+        log(`Hostname: ${hostname}`);
+        if (!hostname) throw new Error("Empty hostname");
+      } catch (e) {
+        throw new Error("Failed to parse URL: " + e.message);
+      }
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
   // === Collapsed State Persistence Tests ===
   {
     id: "collapsed-state-save-load",

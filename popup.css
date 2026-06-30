@@ -441,6 +441,17 @@ main::-webkit-scrollbar-thumb:hover {
   white-space: nowrap;
 }
 
+.tab-domain {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .status-dot {
   width: 7px;
   height: 7px;
