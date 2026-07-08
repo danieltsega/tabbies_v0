@@ -330,6 +330,34 @@ main::-webkit-scrollbar-thumb:hover {
 .cb-hot { color: var(--warning); }
 .cb-cold { color: var(--text-muted); }
 
+.cat-sort {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  padding: 0 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1.4;
+}
+
+.category-header:hover .cat-sort {
+  opacity: 1;
+}
+
+.cat-sort:hover,
+.cat-sort:focus {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.cat-sort option {
+  background: var(--modal-bg);
+  color: var(--text);
+}
+
 .cat-btn {
   background: none;
   border: none;

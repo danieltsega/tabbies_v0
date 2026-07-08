@@ -1408,6 +1408,58 @@ const tests = [
       return true;
     }
   },
+  // === Category Sort Override Tests ===
+  {
+    id: "category-sort-override",
+    name: "Category Sort Override Affects Tab Order",
+    desc: "Verifies categorySort storage changes the sort order within a category",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "SortTest", emoji: "🔀", color: "#8b5cf6" });
+      const catId = catRes.category.id;
+      log(`Created category: ${catId}`);
+
+      const tabs = [];
+      for (let i = 1; i <= 3; i++) {
+        const t = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+        const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: t.id, categoryId: catId });
+        tabs.push(saveRes.tab);
+      }
+      log(`Saved 3 tabs: ${tabs.map(t => t.id.substring(0, 12)).join(", ")}`);
+
+      await chrome.storage.local.set({ categorySort: { [catId]: "oldest" } });
+      const { categorySort } = await chrome.storage.local.get("categorySort");
+      log(`categorySort in storage: ${JSON.stringify(categorySort)}`);
+      if (!categorySort || categorySort[catId] !== "oldest") throw new Error("categorySort not persisted");
+      log("Category sort override saved");
+
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      for (const tab of tabs) {
+        await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: tab.id });
+      }
+      return true;
+    }
+  },
+  {
+    id: "category-sort-reset",
+    name: "Category Sort Reset Clears Override",
+    desc: "Verifies setting categorySort to empty string clears the override",
+    fn: async (log) => {
+      const catRes = await chrome.runtime.sendMessage({ action: "createCategory", name: "ResetSort", emoji: "🔄", color: "#ef4444" });
+      const catId = catRes.category.id;
+
+      await chrome.storage.local.set({ categorySort: { [catId]: "title-asc" } });
+      let { categorySort } = await chrome.storage.local.get("categorySort");
+      if (categorySort[catId] !== "title-asc") throw new Error("Sort was not set");
+
+      await chrome.storage.local.set({ categorySort: {} });
+      categorySort = (await chrome.storage.local.get("categorySort")).categorySort;
+      if (categorySort[catId]) throw new Error("Sort was not cleared");
+      log("Category sort reset correctly");
+
+      await chrome.runtime.sendMessage({ action: "deleteCategory", id: catId });
+      return true;
+    }
+  },
   // === Favicon Cache Tests ===
   {
     id: "favicon-cache-storage",

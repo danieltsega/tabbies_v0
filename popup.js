@@ -11,7 +11,7 @@ const FAV_FALLBACK = (() => {
   return 'data:image/svg+xml;base64,' + btoa(svg);
 })();
 
-let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {}, sortBy: "newest" };
+let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {}, sortBy: "newest", categorySort: {} };
 let editingCategoryId = null;
 let editingNoteTabId = null;
 let pendingUndo = null;
@@ -64,6 +64,10 @@ async function loadData() {
     const { collapsed } = await chrome.storage.local.get("collapsed");
     if (collapsed) state.collapsed = collapsed;
   } catch (e) {}
+  try {
+    const { categorySort } = await chrome.storage.local.get("categorySort");
+    if (categorySort) state.categorySort = categorySort;
+  } catch (e) {}
 }
 
 function renderActionBar() {
@@ -98,16 +102,18 @@ function getFilteredTabs() {
   return tabs;
 }
 
-function getSortedTabs(tabs) {
+function getSortedTabs(tabs, categoryId) {
+  const catSort = categoryId && state.categorySort[categoryId];
   const sorted = [...tabs];
   sorted.sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
-    switch (state.sortBy) {
+    const sortBy = catSort || state.sortBy;
+    switch (sortBy) {
       case "oldest": return (a.savedAt || 0) - (b.savedAt || 0);
       case "title-asc": return (a.title || "").localeCompare(b.title || "");
       case "title-desc": return (b.title || "").localeCompare(a.title || "");
-      default: return (b.savedAt || 0) - (a.savedAt || 0); // newest
+      default: return (b.savedAt || 0) - (a.savedAt || 0);
     }
   });
   return sorted;
@@ -134,7 +140,7 @@ function render() {
   renderSortBar();
   const container = $("tab-list");
   container.innerHTML = "";
-  const visibleTabs = getSortedTabs(getFilteredTabs());
+  const filteredTabs = getFilteredTabs();
 
   const footer = $("footer");
   if (footer) {
@@ -144,12 +150,12 @@ function render() {
   const clearVisibleBtn = $("clear-visible-btn");
   if (clearVisibleBtn) {
     const isFiltered = state.searchQuery || state.statusFilter !== "all";
-    const hasLess = visibleTabs.length < state.savedTabs.length;
-    clearVisibleBtn.style.display = isFiltered && hasLess && visibleTabs.length > 0 ? "" : "none";
-    clearVisibleBtn.textContent = `Remove visible (${visibleTabs.length})`;
+    const hasLess = filteredTabs.length < state.savedTabs.length;
+    clearVisibleBtn.style.display = isFiltered && hasLess && filteredTabs.length > 0 ? "" : "none";
+    clearVisibleBtn.textContent = `Remove visible (${filteredTabs.length})`;
   }
 
-  if (visibleTabs.length === 0) {
+  if (filteredTabs.length === 0) {
     container.innerHTML = state.searchQuery
       ? `<div class="empty-state">No tabs matching "${escapeHtml(state.searchQuery)}"</div>`
       : `<div class="empty-state">No saved tabs yet.<br>Use the buttons above to save or shelve your current tab.</div>`;
@@ -157,15 +163,15 @@ function render() {
   }
   const catIds = new Set(state.categories.map((c) => c.id));
   state.categories.forEach((cat) => {
-    const tabs = visibleTabs.filter((t) => t.categoryId === cat.id);
+    const tabs = getSortedTabs(filteredTabs.filter((t) => t.categoryId === cat.id), cat.id);
     if (tabs.length > 0) {
       container.appendChild(renderCategory(cat, tabs));
     }
   });
-  const uncategorized = visibleTabs.filter((t) => !catIds.has(t.categoryId));
+  const uncategorized = filteredTabs.filter((t) => !catIds.has(t.categoryId));
   if (uncategorized.length > 0) {
     container.appendChild(
-      renderCategory({ id: "__uncategorized", name: "Uncategorized", emoji: "📂", color: "#6b7280" }, uncategorized)
+      renderCategory({ id: "__uncategorized", name: "Uncategorized", emoji: "📂", color: "#6b7280" }, getSortedTabs(uncategorized))
     );
   }
 }
@@ -189,6 +195,13 @@ function renderCategory(category, tabs) {
       <span class="cat-emoji">${category.emoji || "📁"}</span>
       <span class="cat-name">${escapeHtml(category.name)}</span>
       <span class="cat-count">${tabs.length}${breakdown.length > 0 ? ` ${breakdown.join("")}` : ""}</span>
+      <select class="cat-sort" data-category-id="${category.id}" title="Sort tabs in this category">
+        <option value="" ${!state.categorySort[category.id] ? "selected" : ""}>↕</option>
+        <option value="newest" ${state.categorySort[category.id] === "newest" ? "selected" : ""}>Newest</option>
+        <option value="oldest" ${state.categorySort[category.id] === "oldest" ? "selected" : ""}>Oldest</option>
+        <option value="title-asc" ${state.categorySort[category.id] === "title-asc" ? "selected" : ""}>A-Z</option>
+        <option value="title-desc" ${state.categorySort[category.id] === "title-desc" ? "selected" : ""}>Z-A</option>
+      </select>
       ${coldCount > 0 ? `<button class="cat-btn cat-open-all" data-id="${category.id}" title="Open all cold tabs (${coldCount})">▶ ${coldCount}</button>` : ""}
       ${openCount > 0 ? `<button class="cat-btn cat-archive" data-id="${category.id}" title="Archive all open tabs (${openCount})">❄</button>` : ""}
       ${isBuiltIn ? "" : `
@@ -388,15 +401,28 @@ function bindEvents() {
 
   $("tab-list").addEventListener("change", async (e) => {
     const sel = e.target.closest(".cat-select");
-    if (!sel) return;
-    const savedTabId = sel.dataset.id;
-    const newCategoryId = sel.value || null;
-    try {
-      await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { categoryId: newCategoryId } });
-      await loadData();
+    if (sel) {
+      const savedTabId = sel.dataset.id;
+      const newCategoryId = sel.value || null;
+      try {
+        await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { categoryId: newCategoryId } });
+        await loadData();
+        render();
+      } catch (err) {
+        console.error("Category move failed:", err);
+      }
+    }
+    const catSort = e.target.closest(".cat-sort");
+    if (catSort) {
+      const catId = catSort.dataset.categoryId;
+      const value = catSort.value || null;
+      if (value) {
+        state.categorySort[catId] = value;
+      } else {
+        delete state.categorySort[catId];
+      }
+      await chrome.storage.local.set({ categorySort: state.categorySort });
       render();
-    } catch (err) {
-      console.error("Category move failed:", err);
     }
   });
 
@@ -634,7 +660,7 @@ function bindEvents() {
   });
 
   $("clear-visible-btn").addEventListener("click", async () => {
-    const visibleTabs = getSortedTabs(getFilteredTabs());
+    const visibleTabs = getFilteredTabs();
     if (visibleTabs.length === 0) return;
     if (!confirm(`Remove all ${visibleTabs.length} visible tabs?`)) return;
     pushUndo(state.savedTabs, state.categories, "Visible tabs removed");
