@@ -40,6 +40,7 @@ const $ = (id) => document.getElementById(id);
 document.addEventListener("DOMContentLoaded", async () => {
   initColorPicker();
   await loadData();
+  await applySavedTheme();
   render();
   bindEvents();
 });
@@ -745,6 +746,8 @@ function bindEvents() {
 
   $("add-category-btn").addEventListener("click", () => openCategoryModal(null));
 
+  $("theme-btn").addEventListener("click", toggleTheme);
+
   $("modal-cancel").addEventListener("click", closeCategoryModal);
   document.querySelector(".modal-overlay")?.addEventListener("click", closeCategoryModal);
 
@@ -880,6 +883,32 @@ function closeNoteModal() {
 
 async function saveCollapsedState() {
   await chrome.storage.local.set({ collapsed: state.collapsed });
+}
+
+async function applySavedTheme() {
+  try {
+    const { theme } = await chrome.storage.local.get("theme");
+    if (theme === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+      $("theme-btn").textContent = "☾";
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      $("theme-btn").textContent = "☀";
+    }
+  } catch (e) {}
+}
+
+async function toggleTheme() {
+  const isLight = document.documentElement.getAttribute("data-theme") === "light";
+  if (isLight) {
+    document.documentElement.removeAttribute("data-theme");
+    $("theme-btn").textContent = "☀";
+    await chrome.storage.local.set({ theme: "dark" });
+  } else {
+    document.documentElement.setAttribute("data-theme", "light");
+    $("theme-btn").textContent = "☾";
+    await chrome.storage.local.set({ theme: "light" });
+  }
 }
 
 function extractDomain(url) {

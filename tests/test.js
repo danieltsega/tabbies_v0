@@ -1408,6 +1408,36 @@ const tests = [
       return true;
     }
   },
+  // === Theme Persistence Tests ===
+  {
+    id: "theme-persistence-light",
+    name: "Light Theme Persists in Storage",
+    desc: "Verifies theme setting is saved to and retrieved from storage",
+    fn: async (log) => {
+      await chrome.storage.local.set({ theme: "light" });
+      const { theme } = await chrome.storage.local.get("theme");
+      log(`Theme in storage: "${theme}"`);
+      if (theme !== "light") throw new Error(`Expected "light", got "${theme}"`);
+
+      await chrome.storage.local.set({ theme: "dark" });
+      const { theme: theme2 } = await chrome.storage.local.get("theme");
+      if (theme2 !== "dark") throw new Error(`Expected "dark", got "${theme2}"`);
+      log("Theme roundtrip successful");
+      return true;
+    }
+  },
+  {
+    id: "theme-default-dark",
+    name: "Theme Defaults to Dark When Unset",
+    desc: "Verifies theme key is absent from storage when not set",
+    fn: async (log) => {
+      await chrome.storage.local.remove("theme");
+      const { theme } = await chrome.storage.local.get("theme");
+      if (theme !== undefined) throw new Error(`Theme should be undefined, got "${theme}"`);
+      log("Theme key correctly absent");
+      return true;
+    }
+  },
   // === Tab Notes Tests ===
   {
     id: "tab-notes-save",

@@ -10,6 +10,22 @@
   --danger: #ef4444;
   --success: #22c55e;
   --warning: #f59e0b;
+  --modal-bg: #1e293b;
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-card: rgba(241, 245, 249, 0.8);
+  --bg-hover: rgba(226, 232, 240, 0.6);
+  --border: rgba(0, 0, 0, 0.1);
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --modal-bg: #f8fafc;
 }
 
 * {
@@ -111,7 +127,7 @@ h1 {
 }
 
 .action-bar-select option {
-  background: #1e293b;
+  background: var(--modal-bg);
   color: var(--text);
 }
 
@@ -224,7 +240,7 @@ main::-webkit-scrollbar-thumb:hover {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #1e293b;
+  background: var(--modal-bg);
   border-top: 1px solid var(--border);
   font-size: 0.78rem;
   transition: opacity 0.2s;
@@ -521,7 +537,7 @@ main::-webkit-scrollbar-thumb:hover {
   right: 0;
   top: 100%;
   z-index: 50;
-  background: #1e293b;
+  background: var(--modal-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 4px 0;
@@ -661,7 +677,7 @@ main::-webkit-scrollbar-thumb:hover {
 }
 
 .cat-select option {
-  background: #1e293b;
+  background: var(--modal-bg);
   color: var(--text);
 }
 
@@ -726,7 +742,7 @@ main::-webkit-scrollbar-thumb:hover {
 }
 
 .sort-select option {
-  background: #1e293b;
+  background: var(--modal-bg);
   color: var(--text);
 }
 
@@ -787,7 +803,7 @@ main::-webkit-scrollbar-thumb:hover {
 
 .modal-content {
   position: relative;
-  background: #1e293b;
+  background: var(--modal-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
