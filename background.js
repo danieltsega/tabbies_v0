@@ -486,7 +486,24 @@ async function handleMessage(message, sender) {
 
     case "getAllData": {
       const categories = await getCategories();
-      return { success: true, data: { savedTabs, categories } };
+      const { activityLog = [] } = await chrome.storage.local.get("activityLog");
+      return { success: true, data: { savedTabs, categories, activityLog } };
+    }
+
+    case "logActivity": {
+      const { event } = message;
+      if (!event || !event.type) return { success: false };
+      event.timestamp = Date.now();
+      const { activityLog = [] } = await chrome.storage.local.get("activityLog");
+      activityLog.push(event);
+      if (activityLog.length > 50) activityLog.splice(0, activityLog.length - 50);
+      await chrome.storage.local.set({ activityLog });
+      return { success: true };
+    }
+
+    case "clearActivityLog": {
+      await chrome.storage.local.set({ activityLog: [] });
+      return { success: true };
     }
 
     case "createCategory": {

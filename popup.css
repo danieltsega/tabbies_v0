@@ -189,6 +189,92 @@ main {
   border-top: 1px solid var(--border);
 }
 
+/* Activity panel */
+.activity-panel {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  max-height: 150px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.activity-panel.hidden {
+  display: none;
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activity-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.activity-clear:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.activity-list {
+  padding: 4px 0;
+}
+
+.activity-empty {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  font-size: 0.72rem;
+}
+
+.activity-item:hover {
+  background: var(--bg-hover);
+}
+
+.activity-icon {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+}
+
+.activity-text {
+  flex: 1;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-time {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+}
+
 .footer-btn {
   background: none;
   border: none;

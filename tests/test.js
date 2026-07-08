@@ -1408,6 +1408,51 @@ const tests = [
       return true;
     }
   },
+  // === Activity Log Tests ===
+  {
+    id: "activity-log-event",
+    name: "Activity Log Stores Events",
+    desc: "Verifies logActivity stores events and getAllData returns them",
+    fn: async (log) => {
+      await chrome.runtime.sendMessage({ action: "clearActivityLog" });
+      const logRes = await chrome.runtime.sendMessage({ action: "logActivity", event: { type: "save", detail: "Test tab saved" } });
+      if (!logRes.success) throw new Error("logActivity failed");
+      log("Logged activity event");
+
+      const { activityLog } = await chrome.storage.local.get("activityLog");
+      if (!activityLog || activityLog.length < 1) throw new Error("Activity log is empty");
+      const last = activityLog[activityLog.length - 1];
+      log(`Last event: type="${last.type}", detail="${last.detail}"`);
+      if (last.type !== "save") throw new Error(`Expected type "save", got "${last.type}"`);
+      if (last.detail !== "Test tab saved") throw new Error(`Expected detail "Test tab saved", got "${last.detail}"`);
+      if (!last.timestamp) throw new Error("Missing timestamp");
+      log("Activity event stored correctly");
+
+      const res = await chrome.runtime.sendMessage({ action: "getAllData" });
+      if (!res.data.activityLog) throw new Error("getAllData missing activityLog");
+      log("activityLog present in getAllData");
+
+      await chrome.runtime.sendMessage({ action: "clearActivityLog" });
+      return true;
+    }
+  },
+  {
+    id: "activity-log-max-size",
+    name: "Activity Log Trims to 50 Entries",
+    desc: "Verifies activityLog does not exceed 50 items",
+    fn: async (log) => {
+      await chrome.runtime.sendMessage({ action: "clearActivityLog" });
+      for (let i = 0; i < 60; i++) {
+        await chrome.runtime.sendMessage({ action: "logActivity", event: { type: "save", detail: `Event ${i}` } });
+      }
+      const { activityLog } = await chrome.storage.local.get("activityLog");
+      log(`Log size after 60 events: ${activityLog.length}`);
+      if (activityLog.length > 50) throw new Error(`Log has ${activityLog.length} entries, expected max 50`);
+
+      await chrome.runtime.sendMessage({ action: "clearActivityLog" });
+      return true;
+    }
+  },
   // === Category Sort Override Tests ===
   {
     id: "category-sort-override",

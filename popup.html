@@ -49,7 +49,15 @@
       <span id="undo-message" class="undo-message"></span>
       <button id="undo-btn" class="undo-btn">Undo</button>
     </div>
+    <div id="activity-panel" class="activity-panel hidden">
+      <div class="activity-header">
+        <span class="activity-title">Recent Activity</span>
+        <button id="clear-activity-btn" class="activity-clear" title="Clear activity log">✕</button>
+      </div>
+      <div id="activity-list" class="activity-list"></div>
+    </div>
     <footer id="footer" class="footer" style="display:none">
+      <button id="activity-toggle-btn" class="footer-btn">📋 Activity</button>
       <button id="clear-visible-btn" class="footer-btn" style="display:none">Remove visible</button>
       <button id="clear-all-btn" class="footer-btn">Clear all tabs</button>
     </footer>

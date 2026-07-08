@@ -11,7 +11,7 @@ const FAV_FALLBACK = (() => {
   return 'data:image/svg+xml;base64,' + btoa(svg);
 })();
 
-let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {}, sortBy: "newest", categorySort: {} };
+let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {}, sortBy: "newest", categorySort: {}, activityLog: [] };
 let editingCategoryId = null;
 let editingNoteTabId = null;
 let pendingUndo = null;
@@ -53,6 +53,7 @@ async function loadData() {
     if (res.success) {
       state.savedTabs = res.data.savedTabs;
       state.categories = res.data.categories;
+      state.activityLog = res.data.activityLog || [];
       if (state.categories.length > 0 && !state.saveCategoryId) {
         state.saveCategoryId = state.categories[0].id;
       }
@@ -526,6 +527,8 @@ function bindEvents() {
       if (action === "removeSavedTab" && !confirm("Remove this saved tab?")) return;
       if (action === "removeSavedTab") {
         pushUndo(state.savedTabs, state.categories, "Tab removed");
+        const tab = state.savedTabs.find(t => t.id === savedTabId);
+        logActivity("remove", `"${tab ? tab.title : "unknown"}" removed`);
       }
       try {
         await chrome.runtime.sendMessage({ action, savedTabId });
@@ -558,6 +561,8 @@ function bindEvents() {
         await chrome.runtime.sendMessage({ action: "archiveCategory", categoryId });
         await loadData();
         render();
+        const archiveCat = state.categories.find(c => c.id === categoryId);
+        logActivity("archive", `"${archiveCat ? archiveCat.name : "unknown"}" archived`);
       } catch (err) {
         console.error("Archive failed:", err);
       }
@@ -630,6 +635,7 @@ function bindEvents() {
       await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: state.activeTab.id, categoryId: catId });
       await loadData();
       render();
+      logActivity("save", `"${state.activeTab.title}" saved`);
     } catch (err) {
       console.error("Save failed:", err);
     }
@@ -642,6 +648,7 @@ function bindEvents() {
       await chrome.runtime.sendMessage({ action: "shelveActiveTab", tabId: state.activeTab.id, categoryId: catId });
       await loadData();
       render();
+      logActivity("shelve", `"${state.activeTab.title}" shelved`);
     } catch (err) {
       console.error("Shelve failed:", err);
     }
@@ -654,6 +661,7 @@ function bindEvents() {
       await chrome.runtime.sendMessage({ action: "saveAllTabs", windowId: state.activeTab.windowId, categoryId: catId });
       await loadData();
       render();
+      logActivity("save", "All tabs saved");
     } catch (err) {
       console.error("Save all failed:", err);
     }
@@ -668,6 +676,7 @@ function bindEvents() {
       await chrome.runtime.sendMessage({ action: "removeMultipleTabs", savedTabIds: visibleTabs.map(t => t.id) });
       await loadData();
       render();
+      logActivity("remove", `${visibleTabs.length} visible tabs removed`);
     } catch (err) {
       console.error("Remove visible failed:", err);
     }
@@ -681,9 +690,22 @@ function bindEvents() {
       await chrome.runtime.sendMessage({ action: "clearAllTabs" });
       await loadData();
       render();
+      logActivity("clear", "All tabs cleared");
     } catch (err) {
       console.error("Clear all failed:", err);
     }
+  });
+
+  $("activity-toggle-btn").addEventListener("click", () => {
+    const panel = $("activity-panel");
+    panel.classList.toggle("hidden");
+    renderActivityPanel();
+  });
+
+  $("clear-activity-btn").addEventListener("click", async () => {
+    await chrome.runtime.sendMessage({ action: "clearActivityLog" });
+    state.activityLog = [];
+    renderActivityPanel();
   });
 
   $("export-btn").addEventListener("click", async () => {
@@ -822,6 +844,7 @@ function bindEvents() {
       await chrome.runtime.sendMessage({ action: "restoreSavedTabs", savedTabs: pendingUndo.savedTabs, categories: pendingUndo.categories });
       await loadData();
       render();
+      logActivity("restore", "Undo: tabs restored");
     } catch (err) {
       console.error("Undo failed:", err);
     }
@@ -909,6 +932,29 @@ function closeNoteModal() {
 
 async function saveCollapsedState() {
   await chrome.storage.local.set({ collapsed: state.collapsed });
+}
+
+async function logActivity(type, detail) {
+  try {
+    await chrome.runtime.sendMessage({ action: "logActivity", event: { type, detail } });
+    const { activityLog = [] } = await chrome.storage.local.get("activityLog");
+    state.activityLog = activityLog;
+    renderActivityPanel();
+  } catch (e) {}
+}
+
+function renderActivityPanel() {
+  const list = $("activity-list");
+  if (!list) return;
+  if (state.activityLog.length === 0) {
+    list.innerHTML = '<div class="activity-empty">No activity yet</div>';
+    return;
+  }
+  list.innerHTML = state.activityLog.slice(-20).reverse().map(e => {
+    const time = e.timestamp ? relativeTime(e.timestamp) : "";
+    const icon = { save: "💾", shelve: "📦", unshelve: "📤", archive: "❄", remove: "🗑", restore: "↩", clear: "🧹" }[e.type] || "•";
+    return `<div class="activity-item"><span class="activity-icon">${icon}</span><span class="activity-text">${escapeHtml(e.detail || "")}</span><span class="activity-time">${escapeHtml(time)}</span></div>`;
+  }).join("");
 }
 
 async function applySavedTheme() {
