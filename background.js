@@ -78,6 +78,29 @@ async function updateBadge() {
   await chrome.action.setBadgeBackgroundColor({ color: "#4f46e5" });
 }
 
+// Fetch and cache a favicon URL as a data URL for offline reliability
+async function cacheFaviconUrl(faviconUrl) {
+  if (!faviconUrl || !faviconUrl.startsWith("http")) return faviconUrl;
+  try {
+    const { faviconCache = {} } = await chrome.storage.local.get("faviconCache");
+    if (faviconCache[faviconUrl]) return faviconCache[faviconUrl];
+    const response = await fetch(faviconUrl, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) return faviconUrl;
+    const blob = await response.blob();
+    if (blob.size > 65536) return faviconUrl; // skip oversized images
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+    faviconCache[faviconUrl] = dataUrl;
+    await chrome.storage.local.set({ faviconCache });
+    return dataUrl;
+  } catch (e) {
+    return faviconUrl;
+  }
+}
+
 // Listen for external storage changes to keep the badge in sync
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && "savedTabs" in changes) {
@@ -115,6 +138,8 @@ async function handleMessage(message, sender) {
       const { tabId, categoryId } = message;
       const tab = await chrome.tabs.get(tabId);
       
+      const cachedIcon = await cacheFaviconUrl(tab.favIconUrl);
+
       let existingIndex = savedTabs.findIndex(t => t.activeTabId === tabId);
       if (existingIndex === -1) {
         existingIndex = savedTabs.findIndex(t => t.status === "cold" && t.url === tab.url);
@@ -126,7 +151,7 @@ async function handleMessage(message, sender) {
         categoryId,
         url: tab.url,
         title: tab.title || "Untitled Tab",
-        favIconUrl: tab.favIconUrl || "",
+        favIconUrl: cachedIcon,
         status: "active",
         activeTabId: tabId,
         savedAt: existingIndex >= 0 ? savedTabs[existingIndex].savedAt : now
@@ -151,6 +176,8 @@ async function handleMessage(message, sender) {
       // Move the tab to the storage window
       await chrome.tabs.move(tabId, { windowId: storageWindowId, index: -1 });
       
+      const cachedIcon = await cacheFaviconUrl(tab.favIconUrl);
+
       let existingIndex = savedTabs.findIndex(t => t.activeTabId === tabId);
       if (existingIndex === -1) {
         existingIndex = savedTabs.findIndex(t => t.status === "cold" && t.url === tab.url);
@@ -162,7 +189,7 @@ async function handleMessage(message, sender) {
         categoryId,
         url: tab.url,
         title: tab.title || "Untitled Tab",
-        favIconUrl: tab.favIconUrl || "",
+        favIconUrl: cachedIcon,
         status: "hot",
         activeTabId: tabId,
         savedAt: existingIndex >= 0 ? savedTabs[existingIndex].savedAt : now
@@ -304,6 +331,7 @@ async function handleMessage(message, sender) {
         if (tab.url && (tab.url.startsWith("chrome://") || tab.url.startsWith("about:") || tab.url.startsWith("devtools://") || tab.url.startsWith("edge://"))) {
           continue;
         }
+        const cachedIcon = await cacheFaviconUrl(tab.favIconUrl);
         let existingIndex = savedTabs.findIndex(t => t.activeTabId === tab.id);
         if (existingIndex === -1) {
           existingIndex = savedTabs.findIndex(t => t.status === "cold" && t.url === tab.url);
@@ -314,7 +342,7 @@ async function handleMessage(message, sender) {
           categoryId,
           url: tab.url,
           title: tab.title || "Untitled Tab",
-          favIconUrl: tab.favIconUrl || "",
+          favIconUrl: cachedIcon,
           status: "active",
           activeTabId: tab.id,
           savedAt: existingIndex >= 0 ? savedTabs[existingIndex].savedAt : now
@@ -760,7 +788,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       if (savedTab.status === "active" && savedTab.activeTabId === tabId) {
         const newUrl = tab.url;
         const newTitle = tab.title || savedTab.title;
-        const newFavIcon = tab.favIconUrl || savedTab.favIconUrl;
+        const newFavIcon = tab.favIconUrl ? await cacheFaviconUrl(tab.favIconUrl) : savedTab.favIconUrl;
 
         if (savedTab.url !== newUrl || savedTab.title !== newTitle || savedTab.favIconUrl !== newFavIcon) {
           changed = true;

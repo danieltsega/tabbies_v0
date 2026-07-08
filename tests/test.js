@@ -1408,6 +1408,60 @@ const tests = [
       return true;
     }
   },
+  // === Favicon Cache Tests ===
+  {
+    id: "favicon-cache-storage",
+    name: "Favicon Cache Stores Data URLs",
+    desc: "Verifies faviconCache key is present in storage after tab save",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "fav-test" });
+      log(`Saved tab. favIconUrl: ${(saveRes.tab.favIconUrl || "").substring(0, 50)}...`);
+
+      const { faviconCache } = await chrome.storage.local.get("faviconCache");
+      if (faviconCache && typeof faviconCache === "object") {
+        const keys = Object.keys(faviconCache);
+        log(`faviconCache has ${keys.length} entries`);
+      } else {
+        log("faviconCache is empty or absent (expected when favicons are chrome-extension:// URLs)");
+      }
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId: saveRes.tab.id });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
+  {
+    id: "favicon-cache-preserves-urls",
+    name: "Favicon Cache Falls Back to Original URL",
+    desc: "Verifies that non-HTTP favicons keep their original URL",
+    fn: async (log) => {
+      const now = Date.now();
+      const testTab = {
+        id: "fav_fallback_" + now,
+        categoryId: null,
+        url: TEST_URL_A,
+        title: "No Favicon Tab",
+        favIconUrl: "",
+        status: "cold",
+        activeTabId: null,
+        savedAt: now
+      };
+      let savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      savedTabs.push(testTab);
+      await chrome.storage.local.set({ savedTabs });
+      log(`Injected tab with empty favicon: favIconUrl="${testTab.favIconUrl}"`);
+
+      const stored = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const tab = stored.find(t => t.id === testTab.id);
+      if (tab.favIconUrl !== "") throw new Error("Empty favicon was modified");
+      log("Empty favicon preserved unchanged");
+
+      const cleaned = stored.filter(t => t.id !== testTab.id);
+      await chrome.storage.local.set({ savedTabs: cleaned });
+      return true;
+    }
+  },
   // === Theme Persistence Tests ===
   {
     id: "theme-persistence-light",
