@@ -1408,6 +1408,54 @@ const tests = [
       return true;
     }
   },
+  // === Tab Notes Tests ===
+  {
+    id: "tab-notes-save",
+    name: "Tab Notes Can Be Saved and Retrieved",
+    desc: "Verifies updateSavedTab persists a notes field on a tab",
+    fn: async (log) => {
+      const tab = await chrome.tabs.create({ url: TEST_URL_A, active: false });
+      const saveRes = await chrome.runtime.sendMessage({ action: "saveActiveTab", tabId: tab.id, categoryId: "notes-test" });
+      const savedTabId = saveRes.tab.id;
+      log(`Saved tab: ${savedTabId}`);
+
+      const noteText = "This is a test note";
+      const updateRes = await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { notes: noteText } });
+      if (!updateRes.success) throw new Error("Note update failed");
+      if (updateRes.tab.notes !== noteText) throw new Error(`Notes mismatch: "${updateRes.tab.notes}" !== "${noteText}"`);
+      log("Note saved: " + updateRes.tab.notes);
+
+      const savedTabs = (await chrome.storage.local.get("savedTabs")).savedTabs || [];
+      const stored = savedTabs.find(t => t.id === savedTabId);
+      if (stored.notes !== noteText) throw new Error("Notes not persisted in storage");
+      log("Notes persisted in storage");
+
+      const clearRes = await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId, updates: { notes: null } });
+      if (clearRes.tab.notes !== null) throw new Error("Notes not cleared");
+      log("Notes cleared");
+
+      await chrome.runtime.sendMessage({ action: "removeSavedTab", savedTabId });
+      await chrome.tabs.remove(tab.id);
+      return true;
+    }
+  },
+  {
+    id: "tab-notes-forbidden-fields",
+    name: "Notes Update Rejects Forbidden Fields",
+    desc: "Verifies notes updates still enforce field whitelist",
+    fn: async (log) => {
+      try {
+        await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId: "any-id", updates: { notes: "test", status: "cold" } });
+        throw new Error("Should have rejected status update");
+      } catch (e) {
+        if (e.message.includes("Cannot update field: status")) {
+          log("Correctly rejected forbidden field with notes: " + e.message);
+          return true;
+        }
+        throw e;
+      }
+    }
+  },
   // === Header Count Tests ===
   {
     id: "header-count-accurate",

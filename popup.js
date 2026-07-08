@@ -13,6 +13,7 @@ const FAV_FALLBACK = (() => {
 
 let state = { savedTabs: [], categories: [], activeTab: null, saveCategoryId: null, searchQuery: "", statusFilter: "all", collapsed: {}, sortBy: "newest" };
 let editingCategoryId = null;
+let editingNoteTabId = null;
 let pendingUndo = null;
 let undoTimeout = null;
 
@@ -222,6 +223,7 @@ function renderTabItem(tab) {
   return `
     <div class="tab-item${isRecent ? " tab-recent" : ""}${tab.pinned ? " tab-pinned" : ""}" draggable="true" data-id="${escapeHtml(tab.id)}" data-category="${escapeHtml(tab.categoryId || "")}">
       ${isRecent ? '<span class="recent-badge">NEW</span>' : ""}
+      ${tab.notes ? '<span class="note-indicator" title="Has note">📝</span>' : ""}
       <img class="favicon" src="${src}"${onerrorAttr} />
       <span class="tab-title" title="${escapeHtml(tab.title)}&#10;${escapeHtml(tab.url)}">${escapeHtml(tab.title)}</span>
       <span class="tab-domain">${extractDomain(tab.url)}</span>
@@ -238,6 +240,7 @@ function renderTabItem(tab) {
         <div class="hm-dropdown">
           <button class="hm-item" data-action="copyTabUrl" data-id="${escapeHtml(tab.id)}" data-url="${escapeHtml(tab.url)}">📋 Copy URL</button>
           <button class="hm-item" data-action="togglePin" data-id="${escapeHtml(tab.id)}">${tab.pinned ? '★' : '☆'} ${tab.pinned ? 'Unpin' : 'Pin to top'}</button>
+          <button class="hm-item" data-action="editNote" data-id="${escapeHtml(tab.id)}">✎ ${tab.notes ? 'Edit note' : 'Add note'}</button>
           <button class="hm-item" data-action="moveTabToTop" data-id="${escapeHtml(tab.id)}">⬆ Move to top</button>
           <button class="hm-item" data-action="moveTabToBottom" data-id="${escapeHtml(tab.id)}">⬇ Move to bottom</button>
           ${catSection}
@@ -441,6 +444,15 @@ function bindEvents() {
             console.error("Copy failed:", err);
           }
         }
+        return;
+      }
+      if (action === "editNote") {
+        editingNoteTabId = savedTabId;
+        const tab = state.savedTabs.find(t => t.id === savedTabId);
+        $("note-modal-title").textContent = tab && tab.notes ? "Edit Note" : "Add Note";
+        $("note-text").value = tab ? (tab.notes || "") : "";
+        $("note-modal").classList.remove("hidden");
+        $("note-text").focus();
         return;
       }
       if (action === "togglePin") {
@@ -755,6 +767,25 @@ function bindEvents() {
     }
   });
 
+  $("note-modal-cancel").addEventListener("click", closeNoteModal);
+  document.querySelectorAll(".modal-overlay").forEach(el => {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("#note-modal")) closeNoteModal();
+    });
+  });
+
+  $("note-modal-save").addEventListener("click", async () => {
+    const notes = $("note-text").value.trim();
+    try {
+      await chrome.runtime.sendMessage({ action: "updateSavedTab", savedTabId: editingNoteTabId, updates: { notes: notes || null } });
+      closeNoteModal();
+      await loadData();
+      render();
+    } catch (err) {
+      console.error("Note save failed:", err);
+    }
+  });
+
   $("undo-btn").addEventListener("click", async () => {
     if (!pendingUndo) return;
     clearUndo();
@@ -831,6 +862,20 @@ function openCategoryModal(categoryId) {
 function closeCategoryModal() {
   $("category-modal").classList.add("hidden");
   editingCategoryId = null;
+}
+
+function openNoteModal(tabId) {
+  editingNoteTabId = tabId;
+  const tab = state.savedTabs.find(t => t.id === tabId);
+  $("note-modal-title").textContent = tab && tab.notes ? "Edit Note" : "Add Note";
+  $("note-text").value = tab ? (tab.notes || "") : "";
+  $("note-modal").classList.remove("hidden");
+  $("note-text").focus();
+}
+
+function closeNoteModal() {
+  $("note-modal").classList.add("hidden");
+  editingNoteTabId = null;
 }
 
 async function saveCollapsedState() {
